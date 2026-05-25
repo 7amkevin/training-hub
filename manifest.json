@@ -2,15 +2,18 @@
   "name": "训练中枢",
   "short_name": "训练中枢",
   "description": "练·吃·茶·量·恢复 · 三位一体训练系统",
-  "start_url": ".",
+  "start_url": "训练中枢.html",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#060608",
   "theme_color": "#060608",
-  "icons": [{
-    "src": "icon.svg",
-    "sizes": "192x192",
-    "type": "image/svg+xml",
-    "purpose": "any maskable"
-  }]
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "scope": "/training-hub/"
 }
