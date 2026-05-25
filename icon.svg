@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
+  <rect width="192" height="192" rx="32" fill="#060608"/>
+  <circle cx="96" cy="88" r="48" fill="none" stroke="#c89640" stroke-width="3" opacity=".6"/>
+  <text x="96" y="102" text-anchor="middle" fill="#c89640" font-size="56" font-weight="300" font-family="PingFang SC,Microsoft YaHei,sans-serif">中</text>
+  <circle cx="96" cy="148" r="2" fill="#c89640" opacity=".4"/>
+</svg>
