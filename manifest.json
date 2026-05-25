@@ -2,7 +2,7 @@
   "name": "训练中枢",
   "short_name": "训练中枢",
   "description": "练·吃·茶·量·恢复 · 三位一体训练系统",
-  "start_url": "训练中枢.html",
+  "start_url": "/training-hub/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#060608",
