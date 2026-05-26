@@ -1,5 +1,5 @@
-const CACHE='zx-v1';
-const URLS=['训练中枢.html','manifest.json','icon.svg'];
+const CACHE='zx-v2';
+const URLS=['训练中枢.html','index.html','manifest.json','icon.svg'];
 
 self.addEventListener('install',e=>{
   e.waitUntil(caches.open(CACHE).then(c=>c.addAll(URLS)).catch(()=>{}));
