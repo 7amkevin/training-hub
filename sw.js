@@ -1,4 +1,4 @@
-const CACHE='zx-v4';
+const CACHE='zx-v5';
 const URLS=['训练中枢.html','index.html','manifest.json','icon.svg'];
 
 self.addEventListener('install',e=>{
