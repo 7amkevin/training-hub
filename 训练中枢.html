@@ -607,10 +607,17 @@ const TCM_LOG={
 																	'2026-06-04':{
 		  tongue:'舌质淡红 · 苔比昨日厚一点 · 齿痕明显 · 舌尖微红 · 舌下淡紫（稳定）',
 		  trend:'6/3→6/4：苔厚+齿痕反弹（不是饮食·是酸枣仁忘喝两天→睡眠中断→脾气运化变差）· 舌尖微红（微热·不严重）· 舌下淡紫稳定（血瘀改善没倒退）',
-		  diagnosis:'缺酸枣仁两天的连锁反应:睡眠中断(醒几次+想东西)→脾气运化差→苔厚+齿痕反弹。不是方向错了——是缺了一环。舌下淡紫稳定说明血瘀改善是持续的不是偶然。AC必须开·关窗必须·外界约束不变',
-		  tea_extra:'今日推2配方两处微调：<strong>茯苓4g→5g</strong>(苔厚·祛湿)+<strong>陈皮1g→1.5g</strong>(齿痕明显·温中化湿)·其余不变：五指毛桃10g+太子参3g+玉竹4g+莲子5g+麦冬3g·<strong>今晚睡前必须喝炒酸枣仁3g</strong>(刀背拍碎·沸水泡10min·焖3min)',
-		  watch:['酸枣仁今晚必须喝——缺了两天·睡眠中断是苔厚和齿痕的主因','明天晨起看苔和齿痕是否退回去——验证酸枣仁的连锁价值','舌下淡紫持续稳定→血瘀改善可靠·不是偶然波动','今天推2·蝴蝶机35kg第一次·坐姿哑铃推举第一次(10-12kg轻)','面拉检查滑轮在面部高度——上周3前束代偿']
-		},
+			  diagnosis:'缺酸枣仁两天的连锁反应:睡眠中断(醒几次+想东西)→脾气运化差→苔厚+齿痕反弹。不是方向错了——是缺了一环。舌下淡紫稳定说明血瘀改善是持续的不是偶然。AC必须开·关窗必须·外界约束不变',
+			  tea_extra:'今日推2配方两处微调：<strong>茯苓4g→5g</strong>(苔厚·祛湿)+<strong>陈皮1g→1.5g</strong>(齿痕明显·温中化湿)·其余不变：五指毛桃10g+太子参3g+玉竹4g+莲子5g+麦冬3g·<strong>今晚睡前必须喝炒酸枣仁3g</strong>(刀背拍碎·沸水泡10min·焖3min)',
+			  watch:['酸枣仁今晚必须喝——缺了两天·睡眠中断是苔厚和齿痕的主因','明天晨起看苔和齿痕是否退回去——验证酸枣仁的连锁价值','舌下淡紫持续稳定→血瘀改善可靠·不是偶然波动','今天推2·蝴蝶机35kg第一次·坐姿哑铃推举第一次(10-12kg轻)','面拉检查滑轮在面部高度——上周3前束代偿']
+			},
+			'2026-06-05':{
+			  tongue:'舌质淡红 · 苔薄白 · 裂缝消失 · 齿痕很轻微 · 舌下淡紫（稳定）',
+			  trend:'6/3→6/4→6/5：苔厚→薄白（酸枣仁恢复·湿退）· 齿痕明显→很轻微（脾气修复）· 裂缝消失（麦冬5g养阴7天★）· 舌下淡紫稳定',
+			  diagnosis:'本周最大进步：裂缝消失。三条信号同时好转（苔薄·齿痕轻微·裂缝消失）=茶饮+训练协同起效。睡眠有中断但能睡回去·比之前完全睡不着好很多',
+			  tea_extra:'今日拉2配方不做调整·照常。五指毛桃12g+黄芪5g+茯苓4g+玉竹3g+莲子5g+桑葚干6颗+五味子3粒+石菖蒲3g·睡前炒酸枣仁3g(拍碎泡·继续)',
+			  watch:['裂缝消失=麦冬5g养阴7天成果★','齿痕很轻微=脾气在修复·底子还在','酸枣仁今晚继续·拍碎沸水泡','舌下淡紫稳定→血瘀持续改善·不是偶然','今天拉2·T杆30kg·弹力带激活·直臂下拉22.5kg']
+			},
 '2026-06-03':{
 		  tongue:'舌质淡红 · 苔比昨日厚一些 · 齿痕比较明显 · 微裂缝存在（晨起空腹·标准）· 🆕舌下血管淡紫色——本周最大改善',
 		  trend:'6/1→6/2→6/3：苔薄→厚（拉1大重量消耗脾气·正常波动）· 齿痕变明显（同上）· 裂缝微（不是昨日午餐后误判的消失·但没变深）· 舌下深青紫→淡紫（瘀血加速改善★）',
@@ -767,7 +774,7 @@ function showRestDay(dsKey,ptype){
 	  document.getElementById('ovc').innerHTML=h;document.getElementById('ov').classList.add('open');
 	}
 	function showLog(dsKey){
-  const L=LOGS[dsKey];if(!L)return;const P=PLAN[L.planType];const adj=ADJ[L.summary.next];
+  const L=LOGS[dsKey];if(!L||!L.planType||!PLAN[L.planType]){if(L){delete LOGS[dsKey]};return;}const P=PLAN[L.planType];const adj=ADJ[L.summary.next];
   let h='<div class="ov-h"><span class="t">'+P.day+'</span><span class="s">'+dsKey+' · '+L.summary.done+'</span><button class="close" onclick="closeOv()">✕</button></div>';
   h+=timeFields(dsKey);
   h+='<div class="layer l1"><div class="layer-t" onclick="this.parentElement.classList.toggle(&quot;collapsed&quot;)"><span>📋</span>训练计划 · 点击动作行展开细节</div>';
