@@ -772,7 +772,7 @@ const REC={
 
 // ═══════ CALENDAR ═══════
 let Y=2026,M=5;
-const TYPES={1:'推1',2:'拉1',3:'休',4:'推2',5:'拉2',6:'恢复',0:'休日'};
+const TYPES={1:'上肢推',2:'下肢背',3:'休',4:'上肢推拉',5:'拉辅助',6:'恢复',0:'休日'};
 const TAGCLS={1:'tg-t1',2:'tg-l1',3:'tg-x',4:'tg-t2',5:'tg-l2',6:'tg-r',0:'tg-x'};
 function ds(y,m,d){return y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0')}
 function getPlanType(d){return TYPES[new Date(d).getDay()]}
