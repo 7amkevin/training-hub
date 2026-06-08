@@ -83,64 +83,70 @@ body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;backgr
 .meas-hist td{font-size:0.68em;border-bottom:1px solid #16161a}
 </style></head><body>
 
-<div class="h"><h1>训练日历</h1><div class="sub">2026 · 三位一体 · 完整训练系统</div></div>
+<div class="h"><h1>训练日历</h1><div class="sub">2026 · 三位一��� · 完整训练系统</div></div>
 <div class="nav"><button onclick="shift(-1)">◀</button><span class="mon" id="ml"></span><button onclick="shift(1)">▶</button><button onclick="goToday()" style="font-size:0.62em">今天</button><button onclick="showMeasure()" style="font-size:0.65em;color:var(--cy)">📐 围度</button></div>
-<div class="legend"><span><span class="dot" style="background:var(--gn)"></span>已练</span><span style="color:#60a040">推1</span><span style="color:#5088c0">拉1</span><span style="color:#c07040">推2</span><span style="color:#40a8a0">拉2</span><span style="color:#8060a0">恢复</span><span style="color:#333">休</span></div>
+<div class="legend"><span><span class="dot" style="background:var(--gn)"></span>已练</span><span style="color:#60a040">上肢推</span><span style="color:#5088c0">下肢背</span><span style="color:#c07040">上肢推拉</span><span style="color:#40a8a0">拉辅助</span><span style="color:#8060a0">恢复</span><span style="color:#333">休</span></div>
 <div class="cal" id="cal"></div>
 <div class="ov" id="ov" onclick="if(event.target===this)closeOv()"><div class="ov-c" id="ovc"></div></div>
 <div class="ft">训练日历 v3 · 计划+实录+分析+恢复 · 2026</div>
 
 <script>
 // ═══════ PLAN ═══════
-const PLAN={
-推1:{day:'周一 · 推1 大重量',total:'23组 · ~60min',ex:[
-{n:1,name:'杠铃深蹲',mus:'股四头肌',wt:'80-82.5kg',sr:'4×6-8',rest:'3.5min',rir:'RIR 2'},
-{n:2,name:'腿举',mus:'股四头肌',wt:'60-80kg',sr:'3×10-12',rest:'2min',rir:'RIR 1-2'},
-{n:3,name:'坐姿腿弯举',mus:'腘绳肌',wt:'35-45kg',sr:'3×10-12',rest:'1.5min',rir:'RIR 1'},
-{n:4,name:'平板杠铃卧推',mus:'中胸',wt:'60-65kg',sr:'4×6-8',rest:'3min',rir:'RIR 2'},
-{n:5,name:'上斜30°杠铃卧推',mus:'上胸',wt:'50-55kg',sr:'3×8-10',rest:'2.5min',rir:'RIR 1-2'},
-{n:6,name:'站姿实力推',mus:'肩前/中束',wt:'40-45kg',sr:'3×6-8',rest:'2.5min',rir:'RIR 2'},
-{n:7,name:'绳索面拉',mus:'肩后束+外旋肌',wt:'轻格',sr:'3×15',rest:'1min',rir:'RIR 0',star:'rd'}
-]},
-拉1:{day:'周二 · 拉1 大重量',total:'25组 · ~58min',ex:[
-{n:1,name:'罗马尼亚硬拉 RDL',mus:'腘绳肌+臀',wt:'60-65kg',sr:'3×8-10',rest:'2.5min',rir:'RIR 2'},
-{n:2,name:'宽握引体向上(助力机)',mus:'外背阔肌上部',wt:'助力4-5格',sr:'4×8-10',rest:'2.5min',rir:'RIR 1-2'},
-{n:3,name:'T杆划船(约45°握把)',mus:'中背+大圆肌',wt:'35-45kg',sr:'4×8-10',rest:'2.5min',rir:'RIR 1-2'},
-{n:4,name:'窄距反握高位下拉',mus:'大圆肌+背阔肌下部',wt:'40-45kg',sr:'3×10-12',rest:'2min',rir:'RIR 1'},
-{n:5,name:'坐姿绳索划船(窄距V把)',mus:'中下背',wt:'40-50kg',sr:'3×10-12',rest:'2min',rir:'RIR 1'},
-{n:6,name:'哑铃弯举',mus:'二头长头',wt:'8-10kg/手',sr:'3×10-12',rest:'1.5min',rir:'RIR 0-1'},
-{n:7,name:'哑铃侧平举(轻)',mus:'肩中束',wt:'2-3kg/手',sr:'2×20',rest:'1min',rir:'RIR 0',star:'gl'},
-{n:8,name:'绳索面拉',mus:'肩后束+外旋肌',wt:'轻格',sr:'3×15',rest:'1min',rir:'RIR 0',star:'rd'}
-]},
-推2:{day:'周四 · 推2 容量',total:'25组 · ~62min',ex:[
-{n:1,name:'上斜30°哑铃卧推',mus:'上胸',wt:'18-20kg/手',sr:'4×10-12',rest:'2.5min',rir:'RIR 1'},
-{n:2,name:'蝴蝶机夹胸',mus:'胸中缝',wt:'30-40kg',sr:'3×12-15',rest:'2min',rir:'RIR 0-1',star:'rd'},
-{n:3,name:'平板哑铃卧推',mus:'中胸',wt:'18-20kg/手',sr:'3×10-12',rest:'2min',rir:'RIR 1'},
-{n:4,name:'高位绳索夹胸',mus:'下胸',wt:'5-10kg/侧',sr:'3×12-15',rest:'2min',rir:'RIR 0-1',star:'gl'},
-{n:5,name:'哑铃侧平举',mus:'肩中束',wt:'3-5kg/手',sr:'4×15-20',rest:'1min',rir:'RIR 0',star:'gl'},
-{n:6,name:'绳索下压(正握)',mus:'三头外侧',wt:'20-25kg',sr:'3×12-15',rest:'1min',rir:'RIR 0-1'},
-{n:7,name:'仰卧W杠臂屈伸',mus:'三头长头',wt:'15-20kg',sr:'2×12-15',rest:'1min',rir:'RIR 0-1'},
-{n:8,name:'绳索面拉',mus:'肩后束',wt:'轻格',sr:'3×15',rest:'1min',rir:'RIR 0',star:'rd'}
-]},
-拉2:{day:'周五 · 拉2 容量',total:'23组 · ~55min',ex:[
-{n:1,name:'宽握正握高位下拉',mus:'外背阔肌上部',wt:'45kg',sr:'4×10-12',rest:'2.5min',rir:'RIR 1'},
-{n:2,name:'T杆划船(宽距正握)',mus:'外背阔肌下部+上背',wt:'30-40kg',sr:'4×10-12',rest:'2min',rir:'RIR 1'},
-{n:3,name:'窄距对握坐姿绳索划船',mus:'中下背',wt:'40-50kg',sr:'3×10-12',rest:'2min',rir:'RIR 1'},
-{n:4,name:'直臂绳索下拉',mus:'背阔肌下沿',wt:'20-30kg',sr:'3×12-15',rest:'1.5min',rir:'RIR 0-1'},
-{n:5,name:'锤式弯举',mus:'肱肌+二头短头',wt:'8-10kg/手',sr:'3×10-12',rest:'1.5min',rir:'RIR 0-1'},
-{n:6,name:'绳索面拉',mus:'肩后束+外旋肌',wt:'轻格',sr:'3×15',rest:'1min',rir:'RIR 0',star:'rd'},
-{n:7,name:'死虫式',mus:'核心·抗旋转',wt:'自重/1-2kg',sr:'3×15/侧',rest:'40s',rir:'—'}
-]},
-恢复:{day:'周六 · 主动恢复+肩袖纠正',total:'~40min',ex:[
-{n:1,name:'低强度有氧',mus:'—',wt:'—',sr:'25-30min',rest:'—',rir:'—'},
-{n:2,name:'泡沫轴:上背+肩胛+臀',mus:'—',wt:'—',sr:'5min',rest:'—',rir:'—'},
-{n:3,name:'弹力带外旋(肘贴身体)',mus:'冈下肌+小圆肌',wt:'轻弹力带',sr:'2×15/侧',rest:'—',rir:'—'},
-{n:4,name:'弹力带外旋(90°外展位)',mus:'冈上肌+后囊',wt:'轻弹力带',sr:'2×15/侧',rest:'—',rir:'—'},
-{n:5,name:'弹力带拉开(pull-apart)',mus:'中下斜方+菱形肌',wt:'轻弹力带',sr:'2×20',rest:'—',rir:'—'},
-{n:6,name:'哑铃侧平举(极轻·可选)',mus:'肩中束·血流',wt:'2kg',sr:'2×25',rest:'—',rir:'—'}
-]},
-休日:{day:'周日 · 完全休息',total:'白开水·脾胃休息',ex:[]},休:{day:'周三 · 休息日',total:'茶饮调理·脾胃养护',ex:[]}
-};
+	const PLAN={
+	上肢推:{day:'周一 · 上肢推 大重量',total:'22组 · ~60min',ex:[
+	{n:1,name:'平板杠铃卧推',mus:'中胸',wt:'65kg',sr:'4×6-8',rest:'3min',rir:'RIR 2'},
+	{n:2,name:'站姿实力推',mus:'肩前/中束+前锯肌',wt:'35-40kg',sr:'3×6-8',rest:'2.5min',rir:'RIR 2'},
+	{n:3,name:'上斜30°杠铃卧推',mus:'上胸',wt:'50kg',sr:'3×8-10',rest:'2.5min',rir:'RIR 1-2'},
+	{n:4,name:'蝴蝶机夹胸',mus:'胸中缝',wt:'30-35kg',sr:'3×10-12',rest:'2min',rir:'RIR 0-1',star:'rd'},
+	{n:5,name:'绳索下压(正握)',mus:'三头',wt:'20-25kg',sr:'3×12-15',rest:'1min',rir:'RIR 0-1'},
+	{n:6,name:'仰卧W杠臂屈伸',mus:'三头长头',wt:'15-20kg',sr:'2×12-15',rest:'1min',rir:'RIR 0-1'},
+	{n:7,name:'绳索面拉',mus:'肩后束+外旋肌',wt:'10kg',sr:'3×15',rest:'1min',rir:'RIR 0',star:'rd'}
+	]},
+	下肢背:{day:'周二 · 下肢+背 大重量',total:'22组 · ~60min',ex:[
+	{n:1,name:'杠铃深蹲',mus:'股四头肌',wt:'80kg',sr:'3×6-8',rest:'3.5min',rir:'RIR 2'},
+	{n:2,name:'腿举',mus:'股四头肌',wt:'80kg',sr:'3×10-12',rest:'2min',rir:'RIR 1-2'},
+	{n:3,name:'罗马尼亚硬拉 RDL',mus:'腘绳肌+臀',wt:'65kg',sr:'3×8-10',rest:'2.5min',rir:'RIR 2'},
+	{n:4,name:'宽握引体向上(助力机)',mus:'外背阔肌上部',wt:'助力9格',sr:'4×8-10',rest:'2.5min',rir:'RIR 1-2'},
+	{n:5,name:'T杆划船(约45°握把)',mus:'中背+大圆肌',wt:'30kg',sr:'4×8-10',rest:'2.5min',rir:'RIR 1-2'},
+	{n:6,name:'坐姿腿弯举',mus:'腘绳肌',wt:'35kg',sr:'3×10-12',rest:'1.5min',rir:'RIR 1'}
+	]},
+	上肢推拉:{day:'周四 · 上肢推+拉 容量',total:'24组 · ~55min',ex:[
+	{n:1,name:'上斜30°哑铃卧推',mus:'上胸',wt:'18kg/手',sr:'4×10-12',rest:'2.5min',rir:'RIR 1'},
+	{n:2,name:'平板哑铃卧推',mus:'中胸',wt:'18kg/手',sr:'3×10-12',rest:'2min',rir:'RIR 1'},
+	{n:3,name:'站姿实力推',mus:'肩前/中束+前锯肌',wt:'35kg',sr:'3×8-10',rest:'2.5min',rir:'RIR 1-2'},
+	{n:4,name:'高位绳索夹胸',mus:'下胸',wt:'10kg/侧',sr:'3×12-15',rest:'2min',rir:'RIR 0-1',star:'gl'},
+	{n:5,name:'哑铃侧平举',mus:'肩中束',wt:'5kg/手',sr:'4×15-20',rest:'1min',rir:'RIR 0',star:'gl'},
+	{n:6,name:'俯卧撑加(Push-up Plus)',mus:'前锯肌',wt:'自重',sr:'1×15',rest:'30s',rir:'—'},
+	{n:7,name:'绳索面拉',mus:'肩后束+外旋肌',wt:'10kg',sr:'3×15',rest:'1min',rir:'RIR 0',star:'rd'},
+	{n:8,name:'哑铃弯举',mus:'二头长头',wt:'7.5kg/手',sr:'3×10-12',rest:'1.5min',rir:'RIR 0-1'}
+	]},
+	拉辅助:{day:'周五 · 拉+辅助下肢 容量',total:'28组 · ~60min',ex:[
+	{n:1,name:'宽握高位下拉',mus:'外背阔肌上部',wt:'45kg',sr:'4×10-12',rest:'2.5min',rir:'RIR 1'},
+	{n:2,name:'T杆划船(宽距正握)',mus:'外背阔肌下部+上背',wt:'30kg',sr:'4×8-10',rest:'2min',rir:'RIR 1'},
+	{n:3,name:'窄距对握坐姿划船',mus:'中下背',wt:'40kg',sr:'3×10-12',rest:'2min',rir:'RIR 1'},
+	{n:4,name:'锤式弯举',mus:'肱肌+二头短头',wt:'7.5kg/手',sr:'3×10-12',rest:'1.5min',rir:'RIR 0-1'},
+	{n:5,name:'绳索面拉',mus:'肩后束+外旋肌',wt:'10kg',sr:'1×15',rest:'1min',rir:'RIR 0',star:'rd'},
+	{n:6,name:'反向蝴蝶机',mus:'肩后束',wt:'20-30kg',sr:'1×15-20',rest:'1min',rir:'RIR 0'},
+	{n:7,name:'绳索侧平举(低位)',mus:'肩中束',wt:'2.5-5kg',sr:'3×20',rest:'1min',rir:'RIR 0',star:'gl'},
+	{n:8,name:'俯卧腿弯举',mus:'腘绳肌',wt:'35kg',sr:'3×10-12',rest:'1.5min',rir:'RIR 1'},
+	{n:9,name:'腿举',mus:'股四头肌',wt:'60-80kg',sr:'2×10-12',rest:'2min',rir:'RIR 1-2'},
+	{n:10,name:'死虫式',mus:'核心·抗旋转',wt:'自重',sr:'2×15/侧',rest:'40s',rir:'—'}
+	]},
+	恢复:{day:'周六 · 主动恢复+肩袖纠正',total:'~40min',ex:[
+	{n:1,name:'低强度有氧',mus:'—',wt:'—',sr:'25-30min',rest:'—',rir:'—'},
+	{n:2,name:'泡沫轴:上背+肩胛+臀',mus:'—',wt:'—',sr:'5min',rest:'—',rir:'—'},
+	{n:3,name:'弹力带外旋(肘贴身体)',mus:'冈下肌+小圆肌',wt:'轻弹力带',sr:'2×15/侧',rest:'—',rir:'—'},
+	{n:4,name:'弹力带外旋(90°外展位)',mus:'冈上肌+后囊',wt:'轻弹力带',sr:'2×15/侧',rest:'—',rir:'—'},
+	{n:5,name:'弹力带拉开(pull-apart)',mus:'中下斜方+菱形肌',wt:'轻弹力带',sr:'2×20',rest:'—',rir:'—'},
+	{n:6,name:'筋膜球·胸肌',mus:'胸小肌',wt:'—',sr:'1.5min/侧',rest:'—',rir:'—'},
+	{n:7,name:'墙角胸肌拉伸',mus:'胸小肌',wt:'—',sr:'30s×2/侧',rest:'—',rir:'—'},
+	{n:8,name:'哑铃侧平举(极轻)',mus:'肩中束·血流',wt:'2-3kg',sr:'2×25',rest:'—',rir:'—'}
+	]},
+	休日:{day:'周日 · 完全休息',total:'白开水·脾胃休息',ex:[]},
+	休:{day:'周三 · 休息日',total:'茶饮调理·脾胃养护',ex:[]}
+	};
+
+
 
 // ═══════ FULL EXERCISE DETAILS (calendar native CSS) ═══════
 function stripTags(s){return s.replace(/<[^>]*>/g,'').trim()}
@@ -157,23 +163,23 @@ case'腿举':return`
 `;
 
 case'坐姿腿弯举':return`
-<div class="wt-r">首周35kg试。能做满3x12则下周40kg。</div><div class="phase"><div class="phase-t">1 设置</div><ol><li>坐进机器，背贴靠垫。膝盖对准机器轴心（不偏离，否则力矩不对）</li><li>大腿上方的垫子卡紧——不是压死，是刚好不让大腿翘起。大腿翘起=臀部代偿</li><li>脚踝后方的滚轴放在<strong>跟腱稍上方</strong>（不是小腿肚。太高了不舒服且力矩不对）</li></ol></div><div class="phase"><div class="phase-t">2 弯举 · 向心（1-2秒）</div><ol><li>脚踝向后、向下拉——膝盖弯曲到<strong>最大幅度</strong>。顶峰：腘绳肌用力<strong>挤压1秒</strong>——这个挤压是训练的全部价值</li><li>只用腘绳肌发力——不是用臀。如果臀在用力=垫子没卡紧</li></ol></div><div class="phase"><div class="phase-t">3 回放 · 离心（3秒）</div><ol><li><strong>3秒</strong>有控制让滚轴回到起始。不完全锁膝——保持腘绳肌持续紧张</li><li>离心阶段（回放）对腘绳肌的肌肥大刺激<strong>大于向心阶段</strong>——不要浪费这3秒</li><li>控制每一厘米的回放——不是"放回去"，是"对抗着放回去"</li></ol></div><div class="bre">弯举时呼，回放时吸</div><div class="mm">只用腘绳肌去拉——不是用臀。顶峰挤1秒，然后3秒慢慢对抗着放回去。离心比向心更重要。</div><div class="err-sm"><div class="t">常见错误</div><li>滚轴放在小腿肚（不是跟腱）=不舒服+力矩不对。滚轴应该在跟腱稍上方</li><li>回放太快（不到3秒）=离心刺激丢失=腘绳肌生长信号打折。强制3秒对抗回放</li><li>大腿翘起=垫子没卡紧=臀部在代偿=腘绳肌刺激打折</li></div><div class="alt-sm"><div class="t">可替换</div>俯卧腿弯举（器械被占时）/ 北欧腿弯举Nordic Curl（高级自重，腘绳肌离心之王）/ 瑜伽球腿弯举（居家版本）</div>
+<div class="wt-r">首周35kg试。能做满3x12则下周40kg。</div><div class="phase"><div class="phase-t">1 设置</div><ol><li>坐进机器，背贴靠垫。膝盖对准机器轴心（不偏离，否则力矩不对）</li><li>大腿上方的垫子卡紧——不是压死，是刚好不让大腿翘起。大腿翘起=臀部代偿</li><li>脚踝后方的滚轴放在<strong>跟腱稍上方</strong>（不是小腿肚。太高了不舒服且力矩不对）</li></ol></div><div class="phase"><div class="phase-t">2 弯举 · 向心（1-2秒）</div><ol><li>脚踝向后、向下拉——膝盖弯曲到<strong>最大幅度</strong>。顶峰：腘绳肌用力<strong>挤压1秒</strong>——这个挤压是训练的全部价值</li><li>只用腘绳肌发力——不是用臀。如果臀在用力=垫子没卡紧</li></ol></div><div class="phase"><div class="phase-t">3 回放 · 离心（3秒）</div><ol><li><strong>3秒</strong>有控制让滚轴回到起始。不完全锁膝——保持腘绳肌持续紧张</li><li>离心阶段（回放）对腘绳肌的肌肥大刺激<strong>大于向心阶段</strong>——不要浪费这3秒</li><li>控制每一厘米的回放——不是"放回去"，是"对抗着放回去"</li></ol></div><div class="bre">弯举时呼，回放时吸</div><div class="mm">只用腘绳肌去拉——不是用臀。顶峰挤1秒，然后3秒慢慢对抗着放回去。离心比向心更重要。</div><div class="err-sm"><div class="t">常见错误</div><li>滚轴放在小腿肚（不是跟腱）=不舒服+力矩不对。滚轴应该在跟腱稍上方</li><li>回放太快（不到3秒）=离心刺激丢失=腘绳肌生长信号打折。强制3秒对抗回放</li><li>大腿翘起=垫子没卡紧=臀部在代偿=腘绳肌刺激打折</li></div><div class="alt-sm"><div class="t">可替换</div>俯卧腿弯举（器械被占时）/ 北欧��弯举Nordic Curl（高级自重，腘绳肌离心之王）/ 瑜伽球腿弯举（居家版本）</div>
 `;
 
 case'平板杠铃卧推':return`
-<div class="wt-r">本周65kg x 5-6。能4x8则下周67.5kg x 6。<strong>握距：比肩宽1-1.5个手掌。</strong>窄距（与肩同宽）=肱骨头嘎吱声=你的受伤信号。</div><div class="phase"><div class="phase-t">1 设置与起杠</div><ol><li>躺下，眼在<strong>杠铃正下方</strong>。脚踩实地面（比膝稍后，不是悬空）。脚踩死=力量传导的起点</li><li>握距：<strong>比肩宽1-1.5个手掌</strong>。小指在杠铃环内侧1-2cm。这个握距让你的肱骨头与肩峰之间空间更大=肩膀更安全</li><li>收紧上背，<strong>肩胛骨塞进凳子里</strong>——这是卧推设置中最重要的一步。肩胛全程不松=你肩膀的保险</li><li>胸挺起，臀贴凳，形成自然的拱桥（不夸张弓腰）。握紧杠铃，手腕<strong>直</strong>——杠铃在掌根，不在手指</li><li>起杠，手臂伸直，杠铃对准<strong>胸骨下缘</strong>（不是锁骨，不是肚子）。这个位置是你的触胸点</li></ol></div><div class="phase"><div class="phase-t">2 下降（2-3秒，离心）</div><ol><li>控制杠铃下降。肘与躯干约<strong>45-60度</strong>——不展到90度（与肩平行）。90度=肩关节卡压+胸肌刺激下降</li><li>杠铃下到<strong>胸骨下缘</strong>。轻触，<strong>不弹胸</strong>。弹胸=用肋骨反弹借力+伤胸骨</li><li>触胸瞬间检查：前臂与地面<strong>垂直</strong>=握距正确。感受中胸被拉伸</li></ol></div><div class="phase"><div class="phase-t">3 推起（爆发力，向心）</div><ol><li>杠铃向上、同时<strong>微向后</strong>推——不是直上直下。杠铃回到眼上方</li><li>全程三个支点：肩胛骨收紧+双脚踩死+臀贴凳。一个都不能松</li><li>顶峰不锁肘，吸气，准备下一组</li></ol></div><div class="bre">下降时深吸，屏住，推起到顶呼出</div><div class="mm">把杠铃推离胸——不是举杠铃。肩胛骨是你的肩膀保险。杠铃在掌根不在手指。</div><div class="err-sm"><div class="t">常见错误</div><li>握距太窄（与肩同宽）=肱骨头嘎吱声=肩峰撞击前驱。这是你的专属受伤信号</li><li>肘外展到90度（与肩平）=肩关节卡压+胸肌刺激下降</li><li>肩胛骨松了=三角肌前束和肩膀抢走胸肌工作=第二天肩酸胸不酸</li><li>杠铃弹胸=利用反弹力借力+伤胸骨</li><li>手腕弯=杠铃在手指=腕关节痛+力量传导泄露</li></div><div class="alt-sm"><div class="t">可替换</div>平板哑铃卧推（肩更自由，单侧独立） / 史密斯卧推（无保护时） / 负重俯卧撑（居家）</div>
+<div class="wt-r">本周65kg x 5-6。能4x8则下周67.5kg x 6。<strong>握距：比肩宽1-1.5个手掌。</strong>窄距（与肩同宽）=肱骨头嘎吱声=你的受伤信号。</div><div class="phase"><div class="phase-t">1 设置与起杠</div><ol><li>躺下，眼在<strong>杠铃正下方</strong>。脚踩实地面（比膝稍后，不是悬空）。脚踩死=力量传导的起点</li><li>握距：<strong>比肩宽1-1.5个手掌</strong>。小指在杠铃环内侧1-2cm。这个握距让你的肱骨头与肩峰之间空间更大=肩膀更安全</li><li>收紧上背，<strong>肩胛骨塞进凳子里</strong>——这是卧推设置中最重要的一步。肩胛全程不松=你肩膀的保险</li><li>胸挺起，臀贴凳，形成自然的拱桥（不夸张弓腰）。握紧杠铃，手腕<strong>直</strong>——杠铃在掌根，不在手指</li><li>起杠，手臂伸直，杠铃对准<strong>胸骨下缘</strong>（不是锁骨，不是肚子）。这个位置是你的触胸点</li></ol></div><div class="phase"><div class="phase-t">2 下降（2-3秒，离心）</div><ol><li>控制杠铃下降。肘与躯干约<strong>45-60度</strong>——不展到90度（与肩平行）。90度=肩关节卡压+胸肌刺激下降</li><li>杠铃下到<strong>胸骨下缘</strong>��轻触，<strong>不弹胸</strong>。弹胸=用肋骨反弹借力+伤胸骨</li><li>触胸瞬间检查：前臂与地面<strong>垂直</strong>=握距正确。感受中胸被拉伸</li></ol></div><div class="phase"><div class="phase-t">3 推起（爆发力，向心）</div><ol><li>杠铃向上、同时<strong>微向后</strong>推——不是直上直下。杠铃回到眼上方</li><li>全程三个支点：肩胛骨收紧+双脚踩死+臀贴凳。一个都不能松</li><li>顶峰不锁肘，吸气，准备下一组</li></ol></div><div class="bre">下降时深吸，屏住，推起到顶呼出</div><div class="mm">把杠铃推离胸——不是举杠铃。肩胛骨是你的肩膀保险。杠铃在掌根不在手指。</div><div class="err-sm"><div class="t">常见错误</div><li>握距太窄（与肩同宽）=肱骨头嘎吱声=肩峰撞击前驱。这是你的专属受伤信号</li><li>肘外展到90度（与肩平）=肩关节卡压+胸肌刺激下降</li><li>肩胛骨松了=三角肌前束和肩膀抢走胸肌工作=第二天肩酸胸不酸</li><li>杠铃弹胸=利用反弹力借力+伤胸骨</li><li>手腕弯=杠铃在手指=腕关节痛+力量传导泄露</li></div><div class="alt-sm"><div class="t">可替换</div>平板哑铃卧推（肩更自由，单侧独立） / 史密斯卧推（无保护时） / 负重俯卧撑（居家）</div>
 `;
 
 case'上斜30°杠铃卧推':return`
-<div class="wt-r">从平板65kg推算，首周50kg。能做3x10则55kg。</div><div class="phase"><div class="phase-t">1 设置</div><ol><li>椅背调至<strong>30度</strong>——上胸激活最优角（Schoenfeld 2020）。高于30度=三角肌接管。低于30度=中胸偏重</li><li>眼在杠铃正下方。脚踩实地面。肩胛骨收紧。握距与平板相同（比肩宽1-1.5手掌）</li><li>起杠，杠铃在上胸/锁骨正上方。这个位置比平板偏上——杠下到的是锁骨位置，不是胸骨下缘</li></ol></div><div class="phase"><div class="phase-t">2 下降与推起</div><ol><li>下降：杠铃下到<strong>锁骨/上胸</strong>位置（比平板偏上约5-8cm）。轻触不弹</li><li>推起：爆发力推，杠铃回眼上方。肩胛骨全程不松</li><li>杠铃轨迹比平板更直上直下——椅背角度改变了力线</li></ol></div><div class="bre">下降时深吸，屏住，推起到顶呼出</div><div class="mm">上胸锁骨两侧的肌肉在推——不是肩膀在推。肩膀酸=角度可能太高了。</div><div class="err-sm"><div class="t">常见错误</div><li>角度太高（超过45度）=变成坐姿推举=三角肌前束接管=上胸刺激打折</li><li>杠铃下到胸口（不是锁骨）=中胸被激活=上斜卧推的意义丢失</li><li>杠铃弹胸=和所有卧推一样，不弹</li></div><div class="alt-sm"><div class="t">可替换</div>上斜哑铃卧推（肩更自由，单侧独立）/ 低位绳索夹胸上斜位</div>
+<div class="wt-r">从平板65kg推算，首周50kg。能做3x10则55kg。</div><div class="phase"><div class="phase-t">1 设置</div><ol><li>椅背调至<strong>30度</strong>——上胸激活最优角（Schoenfeld 2020）。高于30度=三角肌接管。低于30度=中胸偏重</li><li>眼在杠铃正下方。脚踩实地面。肩胛骨收紧。握距与平板相同（比肩宽1-1.5手掌）</li><li>起杠，杠铃在上胸/锁骨正上方。这个位置比平板偏上——杠下到的是锁骨位置，不是胸骨下缘</li></ol></div><div class="phase"><div class="phase-t">2 下降与推起</div><ol><li>下降：杠铃下到<strong>锁骨/上胸</strong>位置（比平板偏上约5-8cm）。轻触不弹</li><li>推起：爆发力推，杠铃回眼上方。肩胛骨全程不松</li><li>杠铃轨迹比平板更直上直下——椅背角度改变了力线</li></ol></div><div class="bre">下降时深吸，屏住，推起到顶呼出</div><div class="mm">上胸锁骨两侧的肌肉在推——不是肩膀在推。肩膀酸=角度可能太高了。</div><div class="err-sm"><div class="t">常见错误</div><li>角度太高（超过45度）=变成坐姿推举=三角肌前束接管=上胸刺激打折</li><li>杠铃下到胸口（不是锁骨）=中胸被激活=上斜卧推的意义丢失</li><li>杠铃弹胸=和��有卧推一样，不弹</li></div><div class="alt-sm"><div class="t">可替换</div>上斜哑铃卧推（肩更自由，单侧独立）/ 低位绳索夹胸上斜位</div>
 `;
 
 case'站姿实力推':return`
-<div class="wt-r">从平板65kg推算，40-45kg。握距肩宽稍宽。</div><div class="phase"><div class="phase-t">1 设置 · 起杠与站姿</div><ol><li>杠铃架在锁骨高度。双手握距稍宽于肩——前臂在底部时与地面垂直=握距正确</li><li>起杠，后退一步。脚与肩同宽。核心收紧</li><li>杠铃在<strong>锁骨前方</strong>（不是压在锁骨上）。前臂垂直地面。挺胸</li><li><strong>臀肌收紧</strong>——像夹一张纸。这是防止推起时弓腰的关键，也是力量传导的起点</li></ol></div><div class="phase"><div class="phase-t">2 推起 · 向心（爆发力）</div><ol><li>杠铃从锁骨前<strong>直上</strong>推过头顶。头微后仰让路，杠过后头回到正中位</li><li>推到手臂伸直，杠铃在<strong>耳前方</strong>（不是耳后！耳后=肩关节囊前侧被挤压=肩峰撞击风险）</li><li>顶峰：肩中束和前束用力收紧。臀始终收紧——腰不弓</li></ol></div><div class="phase"><div class="phase-t">3 下放 · 离心（2-3秒）</div><ol><li>有控制让杠铃回到锁骨前方——不是掉下来</li><li>保持核心和臀收紧——下放时最容易弓腰。不停留，准备下一组</li></ol></div><div class="bre">推起前深吸，屏住，推过头顶后呼，下放时吸</div><div class="mm">臀收紧像夹一张纸——腰不能弓。杠铃直上直下。全程腹肌对抗。不借腿推。</div><div class="err-sm"><div class="t">常见错误</div><li>过度弓腰=借了腰椎的力=下背疼痛。原因：杠太重或臀没收紧</li><li>杠铃推到身后（耳后方）=肩关节囊压力骤增=肩峰撞击风险。杠铃必须在耳前方</li><li>握距太宽=力量传导打折。握距太窄=前臂和手腕抢活。前臂垂直地面=握距正确</li></div><div class="alt-sm"><div class="t">可替换</div>坐姿哑铃推举（下背疲劳时，肩更孤立）/ 阿诺德推举（中束+前束，额外旋转）/ 史密斯坐姿推举</div>
+<div class="wt-r">从平板65kg推算，40-45kg。握距肩宽稍宽。</div><div class="phase"><div class="phase-t">1 设置 · 起杠与站姿</div><ol><li>杠铃架在锁骨高度。双手握距稍宽于肩——前臂在底部时与地面垂直=握距正确</li><li>起杠，后退一步。脚与肩同宽。核心收紧</li><li>杠铃在<strong>锁骨前方</strong>（不是压在锁骨上）。前臂垂直地面。挺胸</li><li><strong>臀肌收紧</strong>——像夹一张纸。这是防止推起时弓腰的关键，也是力量传导的起点</li></ol></div><div class="phase"><div class="phase-t">2 推起 · 向心（爆发力）</div><ol><li>杠铃从锁骨前<strong>直上</strong>推过头顶。头微后仰让路，杠过后头回到正中位</li><li>推到手臂伸直，杠铃在<strong>耳前方</strong>（不是耳后！耳后=肩关节囊前侧被挤压=肩峰撞击风险）</li><li>顶峰：肩中束和前束用力收紧。臀始终收紧——腰不弓</li></ol></div><div class="phase"><div class="phase-t">3 下放 · 离心（2-3秒）</div><ol><li>有控制让杠铃回到锁骨前方——不是掉下来</li><li>保持核���和臀收紧——下放时最容易弓腰。不停留，准备下一组</li></ol></div><div class="bre">推起前深吸，屏住，推过头顶后呼，下放时吸</div><div class="mm">臀收紧像夹一张纸——腰不能弓。杠铃直上直下。全程腹肌对抗。不借腿推。</div><div class="err-sm"><div class="t">常见错误</div><li>过度弓腰=借了腰椎的力=下背疼痛。原因：杠太重或臀没收紧</li><li>杠铃推到身后（耳后方）=肩关节囊压力骤增=肩峰撞击风险。杠铃必须在耳前方</li><li>握距太宽=力量传导打折。握距太窄=前臂和手腕抢活。前臂垂直地面=握距正确</li></div><div class="alt-sm"><div class="t">可替换</div>坐姿哑铃推举（下背疲劳时，肩更孤立）/ 阿诺德推举（中束+前束，额外旋转）/ 史密斯坐姿推举</div>
 `;
 
 case'绳索面拉':return`
-<div class="wt-r">选能做15次不借力的<strong>轻格</strong>。保护动作——不是力量训练。重量大了=后束不工作=上背代偿。</div><div class="phase"><div class="phase-t">1 设置</div><ol><li>龙门架滑轮调至<strong>面部高度</strong>（或稍高）。装绳索把手</li><li>双手各抓绳一端，后退一步，手臂伸直。身体微后倾但不过度</li><li>脚一前一后或与肩同宽。核心收紧——身体不前后摇晃</li></ol></div><div class="phase"><div class="phase-t">2 拉开（1-2秒，向心）</div><ol><li>双手向<strong>面部方向</strong>拉，同时<strong>向外旋转</strong>——前臂从朝内旋后到朝上/朝外</li><li>拉到双手在耳朵两侧或稍后。肘关节<strong>抬高到与肩平或稍高</strong></li><li>顶峰：<strong>肩胛骨用力收紧</strong>+后束和外旋肌感受到强烈收缩。保持半秒——这个挤压是面拉的核心价值</li></ol></div><div class="phase"><div class="phase-t">3 回放（2-3秒，离心）</div><ol><li>有控制让绳回到起始。手臂伸直，肩胛骨前伸。不停留，下一组</li></ol></div><div class="bre">拉时呼，回时吸</div><div class="mm">用两根手指拉向耳朵后面——不是拉向脸。顶峰肘尖朝两侧——不是胸前夹。二头酸=滑轮太高了。</div><div class="err-sm"><div class="t">常见错误</div><li>重量太大=身体后仰借力=面拉变成划船=后束和外旋肌完全没用到</li><li>肘关节太低（在胸前拉）=上背（菱形肌/中下斜方）接管=后束激活打折</li><li>顶峰手掌没有旋后=外旋肌没被刺激=这个动作最大的肩保护功能丢失</li></div><div class="alt-sm"><div class="t">可替换</div>哑铃俯身飞鸟（龙门架被占） / 反向蝴蝶机（后束孤立） / 弹力带面拉（居家/旅行）</div>
+<div class="wt-r">选能做15次不借力的<strong>轻格</strong>。保护动作——不是力量训练。重量大了=后束不工作=上背代偿。</div><div class="phase"><div class="phase-t">1 设置</div><ol><li>龙门架滑轮调至<strong>面部高度</strong>（或稍高）。装绳索把手</li><li>双手各抓绳一端，后退一步，手臂伸直。身体微后倾但不过度</li><li>脚一前一后或与肩同宽。核心收紧——身体不前后摇晃</li></ol></div><div class="phase"><div class="phase-t">2 拉开（1-2秒，向心）</div><ol><li>双手向<strong>面部方向</strong>拉，同时<strong>向外旋转</strong>——前臂从朝内旋后到朝上/朝外</li><li>拉到双手在耳朵两侧或稍后。肘关节<strong>抬高到与肩平或稍高</strong></li><li>顶峰：<strong>肩胛骨用力收紧</strong>+后束和外旋肌感受到强烈收缩。保持半秒——这个挤压是面拉的核心价值</li></ol></div><div class="phase"><div class="phase-t">3 回放（2-3秒，离心）</div><ol><li>有控制让绳回到起始。手臂伸直，肩胛骨前伸。不停留，下一组</li></ol></div><div class="bre">拉时呼，回时吸</div><div class="mm">用两根手指拉向耳朵后面——不是拉向脸。顶峰肘尖朝两侧——不是胸前夹。二头酸=滑轮太高了。</div><div class="err-sm"><div class="t">常见错误</div><li>重量太大=身体后仰借力=面拉变成划船=后束和外旋肌完全没用到</li><li>肘关节太低（在胸前拉）=上背（菱形肌/中下斜方）接管=后束激活打折</li><li>顶峰手掌没有旋后=外旋肌没被刺激=这个动作最大的肩保护功能丢失</li></div><div class="alt-sm"><div class="t">可替换</div>哑铃俯身飞鸟（龙门架被占） / 反向蝴蝶机（后束孤立） / 弹力带面拉（居家/���行）</div>
 `;
 
 case'罗马尼亚硬拉 RDL':return`
@@ -188,7 +194,7 @@ case'罗马尼亚硬拉 RDL':return`
 <div class="phase"><div class="phase-t">③ 上升（爆发力）</div><ol><li>臀向前顶——不是用背拉。杠铃原路贴腿回。站直不后仰</li></ol></div>
 <div class="bre">下降前深吸→屏住→上升后呼</div>
 <div class="mm">"腘绳肌像橡皮筋被拉长→弹回。杠铃贴着腿滑下去——不是悬下去的。"</div>
-<div class="err-sm"><div class="t">常见错误</div><li>膝盖边降边弯→变传统硬拉→腘绳肌刺激消失</li><li>杠铃离腿→下背成为杠杆支点→腰椎剪切力暴增</li><li>抬头看镜子→颈椎超伸</li></div>
+<div class="err-sm"><div class="t">常见错误</div><li>膝盖边降边弯→变传统硬拉→腘绳肌刺激消失</li><li>杠铃离腿→下背成为杠杆支点→腰椎剪切力暴增</li><li>抬头���镜子→颈椎超伸</li></div>
 <div class="alt-sm"><div class="t">可替换</div>传统硬拉（仅充分恢复时）· 单腿RDL哑铃· 臀推</div>`;
 
 case'宽握引体向上(助力机)':return`
@@ -196,7 +202,7 @@ case'宽握引体向上(助力机)':return`
 `;
 
 case'T杆划船(约45°握把)':return`
-<div class="wt-r">首周35kg试。你健身房版本：胸靠式T杆，握把约45度角（半正握），脚有踏板。最安全版本——脊柱零负荷。</div><div class="phase"><div class="phase-t">1 设置</div><ol><li>胸<strong>贴实</strong>在垫子上（不是虚浮，压实）。双脚踏实脚台</li><li>手握把手（半正握约45度）。手臂自然下垂。肩胛骨微前伸——中背肌群被动拉长</li><li>下巴微收，不抬头。这个姿势保护颈椎</li></ol></div><div class="phase"><div class="phase-t">2 上拉（爆发力，向心）</div><ol><li><strong>第一步：肩胛骨后收</strong>——先夹肩胛骨。和引体向上一样的重要第一步</li><li>第二步：肘向后上方拉，把手接近<strong>下胸/上腹</strong>位置</li><li>顶峰：肩胛骨<strong>完全收紧</strong>，感受中背肌群和大圆肌的挤压。想象用手肘去戳身后的墙</li></ol></div><div class="phase"><div class="phase-t">3 下放（2-3秒，离心）</div><ol><li>有控制送回去，肩胛骨<strong>前伸</strong>，中背肌群被动拉长</li><li>手下放到底但不完全放松——始终保持背部张力。不停留</li></ol></div><div class="bre">上拉时呼，下放时吸</div><div class="mm">胸是贴在垫上的——像被胶水粘住。手只是钩子，肘才是引擎。</div><div class="err-sm"><div class="t">常见错误</div><li>用二头拉=肘没向后上方移动=只是向前弯曲=背没练到二头先酸</li><li>胸离开垫子=借了身体后仰的力=中背刺激打折+脊柱负荷</li><li>耸肩到顶峰=斜方肌上束抢活=中背和大圆肌的刺激被分走</li></div><div class="alt-sm"><div class="t">可替换</div>杠铃俯身划船（无T杆时）/ 单臂哑铃划船 / 坐姿绳索划船</div>
+<div class="wt-r">首周35kg试。你健身房版本：胸靠式T杆，握把约45度角（半正握），脚有踏板。最安全版本——脊柱零负荷。</div><div class="phase"><div class="phase-t">1 设置</div><ol><li>胸<strong>贴实</strong>在垫子上（不是虚浮，压实）。双脚踏实脚台</li><li>手握把手��半正握约45度）。手臂自然下垂。肩胛骨微前伸——中背肌群被动拉长</li><li>下巴微收，不抬头。这个姿势保护颈椎</li></ol></div><div class="phase"><div class="phase-t">2 上拉（爆发力，向心）</div><ol><li><strong>第一步：肩胛骨后收</strong>——先夹肩胛骨。和引体向上一样的重要第一步</li><li>第二步：肘向后上方拉，把手接近<strong>下胸/上腹</strong>位置</li><li>顶峰：肩胛骨<strong>完全收紧</strong>，感受中背肌群和大圆肌的挤压。想象用手肘去戳身后的墙</li></ol></div><div class="phase"><div class="phase-t">3 下放（2-3秒，离心）</div><ol><li>有控制送回去，肩胛骨<strong>前伸</strong>，中背肌群被动拉长</li><li>手下放到底但不完全放松——始终保持背部张力。不停留</li></ol></div><div class="bre">上拉时呼，下放时吸</div><div class="mm">胸是贴在垫上的——像被胶水粘住。手只是钩子，肘才是引擎。</div><div class="err-sm"><div class="t">常见错误</div><li>用二头拉=肘没向后上方移动=只是向前弯曲=背没练到二头先酸</li><li>胸离开垫子=借了身体后仰的力=中背刺激打折+脊柱负荷</li><li>耸肩到顶峰=斜方肌上束抢活=中背和大圆肌的刺激被分走</li></div><div class="alt-sm"><div class="t">���替换</div>杠铃俯身划船（无T杆时）/ 单臂哑铃划船 / 坐姿绳索划船</div>
 `;
 
 case'窄距反握高位下拉':return`
@@ -204,7 +210,7 @@ case'窄距反握高位下拉':return`
 `;
 
 case'坐姿绳索划船(窄距V把)':return`
-<div class="wt-r">McGill安全优化版——脊柱有靠垫支撑=腰方肌不代偿。首周40kg。</div><div class="phase"><div class="phase-t">1 设置</div><ol><li>窄握V把。双脚踏实前方踏板，膝盖微屈。臀后坐，背<strong>贴紧靠垫</strong></li><li>手臂完全伸直——肩胛骨前伸——中下背肌群被动拉长</li><li>胸椎微伸展——挺胸但不弓腰。核心收紧</li></ol></div><div class="phase"><div class="phase-t">2 拉 · 向心（1-2秒）</div><ol><li><strong>第一步：肩胛骨后收</strong>——先夹肩胛骨！这一步和所有划船一样重要</li><li>第二步：屈肘后拉，V把拉到<strong>腹部</strong>位置（不是胸口）。顶峰肩胛骨完全收紧——中下斜方和菱形肌用力挤压</li><li>整个过程身体不后仰——靠垫的作用就是防止你借体重拉</li></ol></div><div class="phase"><div class="phase-t">3 回放 · 离心（2-3秒）</div><ol><li>有控制让手臂回到伸直——肩胛骨前伸——背阔肌被动拉长</li><li>不停留，触即拉下一组。离心阶段对背阔肌的刺激同向心同样重要</li></ol></div><div class="bre">拉时呼，回时吸</div><div class="mm">先用肩胛骨启动——手是最后才动的。背比手臂先工作。这是所有划船的灵魂。手先动=白做一组。</div><div class="err-sm"><div class="t">常见错误</div><li>身体后仰太多=用体重+腰部借力=脊柱屈伸代替了背阔肌工作。背贴紧靠垫</li><li>手先拉，肩胛骨没夹=背的刺激减半。先夹肩胛骨，再动手臂</li><li>拉到胸口不是腹部=中上背被激活=中下背的孤立刺激打折</li></div><div class="alt-sm"><div class="t">可替换</div>单臂哑铃划船（单侧独立，纠正不平衡）/ 胸部支撑哑铃划船（脊柱零负荷，更安全）/ 杠铃俯身划船反握（自由重量版本）</div>
+<div class="wt-r">McGill安全优化版——脊柱有靠垫支撑=腰方肌不代偿。首周40kg。</div><div class="phase"><div class="phase-t">1 设置</div><ol><li>窄握V把。双脚踏实前方踏板，膝盖微屈。臀后坐，背<strong>贴紧靠垫</strong></li><li>手臂完全伸直——肩胛骨前伸——中下背肌群被动拉长</li><li>胸椎微伸展——挺胸但不弓腰。核心收紧</li></ol></div><div class="phase"><div class="phase-t">2 拉 · 向心（1-2秒）</div><ol><li><strong>第一步：肩胛骨后收</strong>——先夹肩胛骨！这一步和所有划船一样重要</li><li>第二步：屈肘后拉，V把拉到<strong>腹部</strong>位置（不是胸口）。顶峰肩胛骨完全收紧——中下��方和菱形肌用力挤压</li><li>整个过程身体不后仰——靠垫的作用就是防止你借体重拉</li></ol></div><div class="phase"><div class="phase-t">3 回放 · 离心（2-3秒）</div><ol><li>有控制让手臂回到伸直——肩胛骨前伸——背阔肌被动拉长</li><li>不停留，触即拉下一组。离心阶段对背阔肌的刺激同向心同样重要</li></ol></div><div class="bre">拉时呼，回时吸</div><div class="mm">先用肩胛骨启动——手是最后才动的。背比手臂先工作。这是所有划船的灵魂。手先动=白做一组。</div><div class="err-sm"><div class="t">常见错误</div><li>身体后仰太多=用体重+腰部借力=脊柱屈伸代替了背阔肌工作。背贴紧靠垫</li><li>手先拉，肩胛骨没夹=背的刺激减半。先夹肩胛骨，再动手臂</li><li>拉到胸口不是腹部=中上背被激活=中下背的孤立刺激打折</li></div><div class="alt-sm"><div class="t">可替换</div>单臂哑铃划船（单侧独立，纠正不平衡）/ 胸部支撑哑铃划船（脊柱零负荷，更安全）/ 杠铃俯身划船反握（自由重量版本）</div>
 `;
 
 case'哑铃弯举':return`
@@ -212,7 +218,7 @@ case'哑铃弯举':return`
 `;
 
 case'哑铃侧平举(轻)':return`
-<div class="wt-r">极轻！2-3kg。这是<strong>频率刺激日</strong>——不是负荷日。质量远大于重量。</div><div class="phase"><div class="phase-t">1 设置 · 站姿与握法</div><ol><li>站直，双脚与髋同宽。哑铃在身体两侧自然下垂——掌心朝向身体</li><li>肘关节<strong>微屈10-15度</strong>，这个角度全程固定不变。手臂不完全伸直——伸直=肘关节承受全部力矩</li><li>肩胛骨微微后收——斜方肌不上提。核心收紧——身体不后仰不摆动</li></ol></div><div class="phase"><div class="phase-t">2 抬起 · 向心（1-2秒）</div><ol><li>手臂从身体两侧向外上方抬起。想象"往远处够"——不是"往上举"。往上举=斜方肌接管=中束刺激归零</li><li>抬到手臂与地面平行或稍低10度。关键：<strong>小指侧高于拇指侧</strong>（倒水壶姿势）——让中束更集中</li><li>顶峰：肩中束收紧。不停留——中束的生长不在顶峰挤压，在离心阶段</li></ol></div><div class="phase"><div class="phase-t">3 下放 · 离心（3秒·最关键）</div><ol><li><strong>3秒</strong>有控制下放——这是中束生长最关键的阶段。今天你是频率日，离心质量比什么都重要</li><li>最下方哑铃不碰身体——保持中束持续紧张——直接下一组</li><li>如果3秒离心做不到——降重！宁可1.5kg+完美3秒，也不3kg+1秒掉下</li></ol></div><div class="bre">抬起呼，下放吸（3秒慢吸配合离心节奏）</div><div class="mm">手心朝下，抬起时小指翘高，拇指压低。往远处去，不是往高处去。斜方肌酸=你耸肩了=降重或纠正姿势。</div><div class="err-sm"><div class="t">常见错误</div><li>耸肩=斜方肌上束抢活=中束刺激归零。小指高于拇指+意识放在肘尖</li><li>抬太高（远超肩平）=斜方肌接管=中束信号骤降。与地面平行或稍低即可</li><li>手臂完全伸直=肘关节受力=保持10-15度微屈</li></div><div class="alt-sm"><div class="t">可替换</div>绳索侧平举（恒定张力，更好的离心控制）/ 器械侧平举 / 弹力带侧平举（居家/旅行）</div>
+<div class="wt-r">极轻！2-3kg。这是<strong>频率刺激日</strong>——不是负荷日。质量远大于重量。</div><div class="phase"><div class="phase-t">1 设置 · 站姿与握法</div><ol><li>站直，双脚与髋同宽。哑铃在身体两侧自然下垂——掌心朝向身体</li><li>肘关节<strong>微屈10-15度</strong>，这个角度全程固定不变。手臂不完全伸直——伸直=肘关节承受全部力矩</li><li>肩胛骨微微后收——斜方肌不上提。核心收紧——身体不后仰不摆动</li></ol></div><div class="phase"><div class="phase-t">2 抬起 · 向心（1-2秒）</div><ol><li>手臂从身体两侧向外上方抬起。想象"往远处够"——不是"往上举"。往上举=斜方肌接管=中束刺激归零</li><li>抬到手臂与地面平行或稍低10度。关键：<strong>小指侧高于拇指侧</strong>（倒水壶姿势）——让中束更集中</li><li>顶峰：肩中束收紧。不停留——中束的生长不在顶峰挤压，在离心阶段</li></ol></div><div class="phase"><div class="phase-t">3 下放 · 离心（3秒·最关键）</div><ol><li><strong>3秒</strong>有控制下��——这是中束生长最关键的阶段。今天你是频率日，离心质量比什么都重要</li><li>最下方哑铃不碰身体——保持中束持续紧张——直接下一组</li><li>如果3秒离心做不到——降重！宁可1.5kg+完美3秒，也不3kg+1秒掉下</li></ol></div><div class="bre">抬起呼，下放吸（3秒慢吸配合离心节奏）</div><div class="mm">手心朝下，抬起时小指翘高，拇指压低。往远处去，不是往高处去。斜方肌酸=你耸肩了=降重或纠正姿势。</div><div class="err-sm"><div class="t">常见错误</div><li>耸肩=斜方肌上束抢活=中束刺激归零。小指高于拇指+意识放在肘尖</li><li>抬太高（远超肩平）=斜方肌接管=中束信号骤降。与地面平行或稍低即可</li><li>手臂完全伸直=肘关节受力=保持10-15度微屈</li></div><div class="alt-sm"><div class="t">可替换</div>绳索侧平举（恒定张力，更好的离心控制）/ 器械侧平举 / 弹力带侧平举（居家/旅行）</div>
 `;
 
 case'上斜30°哑铃卧推':return`
@@ -236,7 +242,7 @@ case'上斜30°哑铃卧推':return`
 <li>肩胛骨<strong>全程不松</strong>。顶峰时上胸用力收紧</li>
 <li>推起之后→深吸一口气→开始下一次下降。每组的最后一次才是最接近力竭的一次</li></ol></div>
 <div class="bre">下降时用鼻子深吸→推到顶时用嘴呼出→下一组前重新深吸。保持腹压稳定</div>
-<div class="mm">"哑铃比杠铃多一个自由度——向内夹。杠铃你的手被固定住了，哑铃可以让你的上胸在顶峰额外挤一下。这个'挤'的0.5秒是哑铃版独有的肌肥大刺激。"</div>
+<div class="mm">"哑铃比杠铃多一个自由度——向内夹。杠铃你��手被固定住了，哑铃可以让你的上胸在顶峰额外挤一下。这个'挤'的0.5秒是哑铃版独有的肌肥大刺激。"</div>
 <div class="err-sm"><div class="t">常见错误</div>
 <li><strong>哑铃在顶端互碰→</strong>胸肌瞬间完全卸载→持续紧张断开。保持2-3cm间隙</li>
 <li><strong>肘外展到90°与肩平→</strong>肩关节囊前侧被挤压→肩峰撞击风险。你的左肩有旧伤→这条尤其重要。肘保持在躯干45-60°</li>
@@ -257,7 +263,7 @@ case'蝴蝶机夹胸':return`
 <li>想象两只手中间有一个气球→用胸去把它挤破——不是用手臂推，是用胸中缝夹</li></ol></div>
 <div class="phase"><div class="phase-t">③ 回放 · 离心阶段（3秒）</div><ol>
 <li><strong>3秒</strong>有控制张开→手臂回到身体两侧→胸肌被大幅度拉长</li>
-<li>最外侧短暂不停留——触即夹下一组。离心阶段（回放）对胸中缝的肌肥大刺激很强</li></ol></div>
+<li>最外侧短暂不停留——触即夹下一组。离心阶段（回放）对胸中��的肌肥大刺激很强</li></ol></div>
 <div class="bre">夹时呼→回时吸</div>
 <div class="mm">"不是用手臂推——是用胸中缝夹。顶峰那1秒的挤压是这个动作的全部价值。如果感觉不到中缝→降重+放慢速度。"</div>
 <div class="err-sm"><div class="t">常见错误</div>
@@ -268,16 +274,16 @@ case'蝴蝶机夹胸':return`
 <div class="alt-sm"><div class="t">可替换</div>斯万推胸/哑铃片夹胸（双手挤压两个哑铃片）· 低位绳索夹胸中胸位（龙门架滑轮调低·从低向中夹）· 弹力带夹胸（居家）</div>`;
 
 case'平板哑铃卧推':return`
-<div class="wt-r">首周18kg/手。比杠铃版更自由——肩可以找最舒服的角度。从杠铃65kg推算，哑铃单边约18-20kg。</div><div class="phase"><div class="phase-t">1 设置</div><ol><li>躺平。哑铃放大腿上，用大腿顶起，一脚踢到肩位，顺势躺下。肩胛骨收紧塞进凳子里</li><li>哑铃在<strong>胸两侧</strong>（比杠铃版偏外侧一点）。掌心朝前或微朝内。手腕直——哑铃在掌根</li><li>脚踩实地面。臀贴凳。核心微收。哑铃起始位时胸肌应感受到轻微被动拉伸</li></ol></div><div class="phase"><div class="phase-t">2 下降（2-3秒，离心）</div><ol><li>控制哑铃下降到<strong>胸两侧</strong>。肘与躯干约45-60度——不展到90度</li><li>下降幅度：哑铃到胸侧或稍低于胸。感受中胸被拉伸。不弹，不碰</li><li>哑铃的下降轨迹比杠铃更自由——允许手腕和肩找到最舒服的角度</li></ol></div><div class="phase"><div class="phase-t">3 推起（爆发力，向心）</div><ol><li>爆发力推起。顶端两个哑铃<strong>不碰</strong>——保持2-3cm间隙。碰撞=持续紧张中断</li><li>推起时想象向内夹——这是哑铃版独有的自由度。杠铃做不到这个"内夹"的感觉</li><li>肩胛骨全程不松。顶峰中胸收紧</li></ol></div><div class="bre">下降时深吸，推起时呼</div><div class="mm">哑铃推到顶时想象向内夹——杠铃给不了的感觉。两个哑铃之间留2-3cm，保持胸肌持续紧张。</div><div class="err-sm"><div class="t">常见错误</div><li>哑铃顶端互碰=胸肌瞬间卸载=持续紧张中断=刺激打折</li><li>肘外展90度=肩关节夹击=左肩风险</li><li>哑铃位置太靠上（放到肩膀位置）=练到的是肩膀不是胸</li></div><div class="alt-sm"><div class="t">可替换</div>平板杠铃卧推 / 负重俯卧撑 / 史密斯平板卧推</div>
+<div class="wt-r">首周18kg/手。比杠铃版更自由——肩可以找最舒服的角度。从杠铃65kg推算，哑铃单边约18-20kg。</div><div class="phase"><div class="phase-t">1 设置</div><ol><li>躺平。哑铃放大腿上，用大腿顶起，一脚踢到肩位，顺势躺下。肩胛骨收紧塞进凳子里</li><li>哑铃在<strong>胸两侧</strong>（比杠铃版偏外侧一点）。掌心朝前或微朝内。手腕直——哑铃在掌根</li><li>脚踩实地面。臀贴凳。核心微收。哑铃起始位时胸肌应感受到轻微被动拉伸</li></ol></div><div class="phase"><div class="phase-t">2 下降（2-3秒，离心）</div><ol><li>控制哑铃下降到<strong>胸两侧</strong>。肘与躯干约45-60度——不展到90度</li><li>下降幅度：哑铃到胸侧或稍低于胸。感受中胸被拉伸。不弹，不碰</li><li>哑铃的下降轨迹比杠铃更自由——允许手腕和肩找到最舒服的角度</li></ol></div><div class="phase"><div class="phase-t">3 推起（爆发力，向心）</div><ol><li>爆发力推起。顶端两个哑铃<strong>不碰</strong>——保持2-3cm间隙。碰撞=持续紧张中断</li><li>推起时想象向内夹——这是哑铃版独有的自由度。杠铃做不到这个"内夹"的感觉</li><li>肩胛骨全程不松。顶峰中胸收紧</li></ol></div><div class="bre">下降时深吸，推起时呼</div><div class="mm">哑铃推到顶时想象向内夹——杠铃给不了的感觉。两个哑铃之间留2-3cm，保持胸肌持续紧张。</div><div class="err-sm"><div class="t">常见错误</div><li>哑铃顶端互碰=胸肌瞬间卸载=持续紧张中断=刺激打折</li><li>肘外��90度=肩关节夹击=左肩风险</li><li>哑铃位置太靠上（放到肩膀位置）=练到的是肩膀不是胸</li></div><div class="alt-sm"><div class="t">可替换</div>平板杠铃卧推 / 负重俯卧撑 / 史密斯平板卧推</div>
 `;
 
 case'高位绳索夹胸':return`
-<div class="wt-r">替代下斜哑铃飞鸟（你无设备）。龙门架滑轮<strong>最高位</strong>。D型把手。首周5kg/侧找感觉。</div><div class="phase"><div class="phase-t">1 设置</div><ol><li>两个滑轮调至<strong>最高</strong>（超过头顶）。各装D型把手</li><li>站龙门架正<strong>中央</strong>。双脚一前一后或与肩同宽。身体<strong>微前倾20-30度</strong></li><li>双手各持D把。手臂<strong>微屈15-20度</strong>，肘角全程固定不变——伸直=变拉力器推的动作</li><li>手臂在身体两侧高位（与肩平或稍高）。核心收紧，身体不前后摇晃</li></ol></div><div class="phase"><div class="phase-t">2 夹（1-2秒，向心）</div><ol><li>手臂保持微屈，双手从高处向下、向前<strong>画弧线</strong>夹——不是直线拉。想象用肘尖画一个向下的半圆</li><li>手在<strong>腰部/肚脐高度</strong>汇合——不是胸前！胸前汇合=胸中缝被激活=下沿没被激活</li><li>顶峰：胸下沿（sternal pec）用力收紧，保持半秒。肘始终微屈</li></ol></div><div class="phase"><div class="phase-t">3 回放（3秒，离心）</div><ol><li>有控制让手回到高位起始。胸下沿被<strong>拉长</strong>——这个拉伸感是下沿肌肥大的关键</li><li>不停留，触即夹下一组。离心阶段对胸下沿的刺激最强——不要浪费这3秒</li></ol></div><div class="bre">夹时呼，回时吸</div><div class="mm">手画向下弧线。头顶出发，腰部汇合。不是水平夹——是扫下来。汇合在胸前=练到中缝不是下沿。</div><div class="err-sm"><div class="t">常见错误</div><li>手臂完全伸直=肩和肘参与过多=胸下沿孤立刺激被分散</li><li>身体太直=手在胸前交汇=胸中缝被激活=下沿没被激活</li><li>滑轮太低（低于头顶）=手从水平位夹=练到的是中胸不是下胸</li><li>用身体摇晃代替胸肌发力=重量太大了，降重</li></div><div class="alt-sm"><div class="t">可替换</div>下斜哑铃飞鸟（你有设备了，下方有完整步骤） / 双杠臂屈伸（仅左肩完全无不适时） / 下斜俯卧撑（居家）</div>
+<div class="wt-r">替代下斜哑铃飞鸟（你无设备）。龙门架滑轮<strong>最高位</strong>。D型把手。首周5kg/侧找感觉。</div><div class="phase"><div class="phase-t">1 设置</div><ol><li>两个滑轮调至<strong>最高</strong>（超过头顶）。各装D型把手</li><li>站龙门架正<strong>中央</strong>。双脚一前一后或与肩同宽。身体<strong>微前倾20-30度</strong></li><li>双手各持D把。手臂<strong>微屈15-20度</strong>，肘角全程固定不变——伸直=变拉力器推的动作</li><li>手臂在身体两侧高位（与肩平或稍高）。核心收紧，身体不前后摇晃</li></ol></div><div class="phase"><div class="phase-t">2 夹（1-2秒，向心）</div><ol><li>手臂保持微屈，双手从高处向下、向前<strong>画弧线</strong>夹——不是直线拉。想象用肘尖画一个向下的半圆</li><li>手在<strong>腰部/肚脐高度</strong>汇合——不是胸前！胸前汇合=胸中缝被激活=下沿没被激活</li><li>顶峰：胸下沿（sternal pec）用力收紧，保持半秒���肘始终微屈</li></ol></div><div class="phase"><div class="phase-t">3 回放（3秒，离心）</div><ol><li>有控制让手回到高位起始。胸下沿被<strong>拉长</strong>——这个拉伸感是下沿肌肥大的关键</li><li>不停留，触即夹下一组。离心阶段对胸下沿的刺激最强——不要浪费这3秒</li></ol></div><div class="bre">夹时呼，回时吸</div><div class="mm">手画向下弧线。头顶出发，腰部汇合。不是水平夹——是扫下来。汇合在胸前=练到中缝不是下沿。</div><div class="err-sm"><div class="t">常见错误</div><li>手臂完全伸直=肩和肘参与过多=胸下沿孤立刺激被分散</li><li>身体太直=手在胸前交汇=胸中缝被激活=下沿没被激活</li><li>滑轮太低（低于头顶）=手从水平位夹=练到的是中胸不是下胸</li><li>用身体摇晃代替胸肌发力=重量太大了，降重</li></div><div class="alt-sm"><div class="t">可替换</div>下斜哑铃飞鸟（你有设备了，下方有完整步骤） / 双杠臂屈伸（仅左肩完全无不适时） / 下斜俯卧撑（居家）</div>
 `;
 
 case'哑铃侧平举':return`
 <div class="wt-r"><strong>3-5kg。</strong>能4×20→6kg×15。<strong>肩宽核心动作。中束生长靠离心——不靠大重量。</strong></div>
-<div class="phase"><div class="phase-t">① 设置 · 站姿与握法</div><ol>
+<div class="phase"><div class="phase-t">① 设置 �� 站姿与握法</div><ol>
 <li>站直，双脚与髋同宽。哑铃在身体两侧自然下垂——<strong>掌心朝向身体</strong>（中立位）</li>
 <li>肘关节<strong>微屈10-15°</strong>，这个角度<strong>全程固定不变</strong>。手臂不要完全伸直——肘伸直=肘关节承受全部力矩</li>
 <li>肩胛骨微微后收→斜方肌不上提。核心收紧——身体<strong>不后仰、不摆动</strong>。如果身体在晃→重量太重</li>
@@ -288,7 +294,7 @@ case'哑铃侧平举':return`
 <li>关键姿势：<strong>小指侧高于拇指侧</strong>（像倒水壶）。这个微小的旋转让中束更加集中在发力位置</li>
 <li>顶峰：肩中束收紧。不停留——中束的生长不在顶峰挤压，在离心</li></ol></div>
 <div class="phase"><div class="phase-t">③ 下放 · 离心阶段（3秒·最关键）</div><ol>
-<li><strong>3秒</strong>有控制下放——这是<strong>中束生长最关键的阶段</strong>。中束的离心肌肥大信号比向心更强</li>
+<li><strong>3秒</strong>有控制下放——这是<strong>中束��长最关键的阶段</strong>。中束的离心肌肥大信号比向心更强</li>
 <li>下放时对抗重力——不是"掉下来"是"放下来"。感受中束被缓慢拉长</li>
 <li>最下方哑铃<strong>不碰身体</strong>→保持中束持续紧张→不停留直接下一组</li>
 <li>如果3秒离心做不到→<strong>重量太重了</strong>→降重。宁可轻也要控制。3-5kg + 3秒离心 > 7.5kg + 1秒掉下来</li></ol></div>
@@ -308,7 +314,7 @@ case'绳索下压(反握)':return`
 
 case'仰卧W杠臂屈伸':return`<div class="wt-r">替代绳索过头伸展·W杠曲度让手腕中立·左腕友好。仰卧·<strong>15-20kg起步</strong>。</div><div class="phase"><div class="phase-t">1 设置</div><ol><li>仰卧平板凳·双手握W杠·握距<strong>肩宽</strong>（W杠弯曲处）·手臂伸直指向天花板</li><li>脚踩实·臀贴凳。大臂<strong>固定在肩上方</strong>——全程不动</li></ol></div><div class="phase"><div class="phase-t">2 下放·离心(2-3秒)</div><ol><li>肘保持朝天·W杠有控制下放到<strong>头顶位置</strong>（不要下放到额头后方——会过度拉伸手腕）</li><li>三头长头被拉伸。下放到底不停留</li></ol></div><div class="phase"><div class="phase-t">3 推起·向心(爆发力)</div><ol><li>肘不动——只有前臂推起——手臂伸直指向天花板</li><li>顶峰三头长头收紧。不锁肘</li></ol></div><div class="bre">下放时吸·推起时呼</div><div class="mm">大臂是固定在肩上的——只有肘以下在动。W杠比直杠舒服因为手腕角度更自然。不要下放到额头后方——过度下放=手腕过度伸展。</div><div class="err-sm"><div class="t">常见错误</div><li>大臂前后移动=肩和胸借力=三头长头刺激荡然无存</li><li>下放到额头后方=手腕过度伸展=你的左腕尤其不能忍</li><li>重量太大=肘外展=长头孤立失败</li></div><div class="alt-sm"><div class="t">可替换</div>绳索过头伸展(龙门架) / 哑铃单臂过头臂屈伸 / 双杠臂屈伸辅助机</div>`;
 case'绳索过头伸展':return`
-<div class="wt-r">替代颈后臂屈伸（肩安全）。滑轮<strong>肩部高度</strong>，绳索把手，背对龙门架。首周15kg。</div><div class="phase"><div class="phase-t">1 设置</div><ol><li>滑轮调至<strong>肩高</strong>。装绳索把手。背对龙门架，双手过头抓绳</li><li>身体<strong>微前倾10度</strong>。肘<strong>指向上方</strong>（朝天）——前臂在耳侧——绳索在头后方</li><li>核心收紧——身体不晃动。这是三头<strong>长头</strong>最孤立的姿势——长头占上臂围度的最大比例</li></ol></div><div class="phase"><div class="phase-t">2 伸展 · 向心（1-2秒）</div><ol><li><strong>肘不动</strong>——只有前臂向前上方推——手臂伸直。推到头顶前上方，不锁肘</li><li>顶峰：三头长头用力收紧。想象"用肘尖去指天花板"——肘是固定的支点</li></ol></div><div class="phase"><div class="phase-t">3 回放 · 离心（3秒）</div><ol><li><strong>3秒</strong>有控制让手回到耳后——肘保持稳定不动。这是三头长头离心——肌肥大最关键阶段</li><li>身体不晃动——如果身体在晃=重量太大了。降重，控制为王</li></ol></div><div class="bre">伸展时呼，回放时吸</div><div class="mm">肘是固定在头上的——只有前臂在敬礼。肘向外张=肩在借力=长头完全没刺激到。身体必须微前倾——太直=绳拉脸上。</div><div class="err-sm"><div class="t">常见错误</div><li>肘向外张开=肩借力=长头刺激完全消失。肘必须朝天，不动</li><li>身体太直=绳索拉到脸上=尴尬+无效。身体必须微前倾10度</li><li>重量太大=身体晃动=用躯干代偿=三头长头孤立刺激归零。降重</li></div><div class="alt-sm"><div class="t">可替换</div>单手哑铃过头臂屈伸（肩更自由，每侧独立）/ 仰卧EZ杆臂屈伸Skull Crusher（中立位，手腕友好）/ 坐姿过头伸展</div>
+<div class="wt-r">替代颈后臂屈伸（肩安全）。滑轮<strong>肩部高度</strong>，绳索把手，背对龙门架。首周15kg。</div><div class="phase"><div class="phase-t">1 设置</div><ol><li>滑轮调至<strong>肩高</strong>。装绳索把手。���对龙门架，双手过头抓绳</li><li>身体<strong>微前倾10度</strong>。肘<strong>指向上方</strong>（朝天）——前臂在耳侧——绳索在头后方</li><li>核心收紧——身体不晃动。这是三头<strong>长头</strong>最孤立的姿势——长头占上臂围度的最大比例</li></ol></div><div class="phase"><div class="phase-t">2 伸展 · 向心（1-2秒）</div><ol><li><strong>肘不动</strong>——只有前臂向前上方推——手臂伸直。推到头顶前上方，不锁肘</li><li>顶峰：三头长头用力收紧。想象"用肘尖去指天花板"——肘是固定的支点</li></ol></div><div class="phase"><div class="phase-t">3 回放 · 离心（3秒）</div><ol><li><strong>3秒</strong>有控制让手回到耳后——肘保持稳定不动。这是三头长头离心——肌肥大最关键阶段</li><li>身体不晃动——如果身体在晃=重量太大了。降重，控制为王</li></ol></div><div class="bre">伸展时呼，回放时吸</div><div class="mm">肘是固定在头上的——只有前臂在敬礼。肘向外张=肩在借力=长头完全没刺激到。身体必须微前倾——太直=绳拉脸上。</div><div class="err-sm"><div class="t">常见错误</div><li>肘向外张开=肩借力=长头刺激完全消失。肘必须朝天，不动</li><li>身体太直=绳索拉到脸上=尴尬+无效。身体必须微前倾10度</li><li>重量太大=身体晃动=用躯干代偿=三头长头孤立刺激归零。降重</li></div><div class="alt-sm"><div class="t">可替换</div>单手哑铃过头臂屈伸（肩更自由，每侧独立）/ 仰卧EZ杆臂屈伸Skull Crusher（中立位，手腕友好）/ 坐姿过头伸展</div>
 `;
 
 case'宽握正握高位下拉':return`
@@ -316,15 +322,15 @@ case'宽握正握高位下拉':return`
 `;
 
 case'T杆划船(宽距正握)':return`
-<div class="wt-r">首周30kg。宽距=偏外背阔肌下部+上背宽度。和周二窄距（中背厚度）形成完整互补。</div><div class="phase"><div class="phase-t">1 设置</div><ol><li>胸<strong>贴实</strong>在垫子上（不是虚浮，压实）。双脚踏实脚台</li><li>手<strong>宽握</strong>（正握，握距约为肩宽的1.5-2倍）。肘在身体两侧较外侧</li><li>手臂自然下垂。肩胛骨微前伸——背阔肌被动拉长。下巴微收</li></ol></div><div class="phase"><div class="phase-t">2 上拉 · 向心（1-2秒）</div><ol><li><strong>第一步：肩胛骨后收</strong>——先夹肩胛骨。和所有划船一样的铁律</li><li>第二步：肘向外、向后上方拉，把手到<strong>下胸位</strong>。宽握版本画的是外扩的弧线</li><li>顶峰：外背阔肌下部收紧。肩胛骨完全收紧——感受上背的宽度方向发力</li></ol></div><div class="phase"><div class="phase-t">3 下放 · 离心（2-3秒）</div><ol><li>有控制送回去——肩胛骨前伸——背阔肌被动拉长</li><li>手下放到底但不完全放松——始终保持背部张力。不停留，下一组</li></ol></div><div class="bre">上拉时呼，下放时吸</div><div class="mm">宽握画外扩弧线。和周二窄距形成完整覆盖——窄=中背厚度，宽=上背宽度和背阔肌下部。两天的T杆是两个不同的动作。</div><div class="err-sm"><div class="t">常见错误</div><li>胸离垫子=借了身体后仰的力=中背刺激打折+脊柱负荷。胸必须贴实</li><li>握距不够宽=和窄距没有区别=两天的互补性丢失。必须1.5-2倍肩宽</li><li>耸肩到顶峰=斜方肌上束抢活=背阔肌下部刺激被分走</li></div><div class="alt-sm"><div class="t">可替换</div>杠铃俯身划船宽握（自由重量版本）/ 宽握坐姿绳索划船 / 直臂下拉（替代角度，偏下沿）</div>
+<div class="wt-r">首周30kg。宽距=偏外背阔肌下部+上背宽度。和周二窄距（中背厚度）形成完整互补。</div><div class="phase"><div class="phase-t">1 设置</div><ol><li>胸<strong>贴实</strong>在垫子上（不是���浮，压实）。双脚踏实脚台</li><li>手<strong>宽握</strong>（正握，握距约为肩宽的1.5-2倍）。肘在身体两侧较外侧</li><li>手臂自然下垂。肩胛骨微前伸——背阔肌被动拉长。下巴微收</li></ol></div><div class="phase"><div class="phase-t">2 上拉 · 向心（1-2秒）</div><ol><li><strong>第一步：肩胛骨后收</strong>——先夹肩胛骨。和所有划船一样的铁律</li><li>第二步：肘向外、向后上方拉，把手到<strong>下胸位</strong>。宽握版本画的是外扩的弧线</li><li>顶峰：外背阔肌下部收紧。肩胛骨完全收紧——感受上背的宽度方向发力</li></ol></div><div class="phase"><div class="phase-t">3 下放 · 离心（2-3秒）</div><ol><li>有控制送回去——肩胛骨前伸——背阔肌被动拉长</li><li>手下放到底但不完全放松——始终保持背部张力。不停留，下一组</li></ol></div><div class="bre">上拉时呼，下放时吸</div><div class="mm">宽握画外扩弧线。和周二窄距形成完整覆盖——窄=中背厚度，宽=上背宽度和背阔肌下部。两天的T杆是两个不同的动作。</div><div class="err-sm"><div class="t">常见错误</div><li>胸离垫子=借了身体后仰的力=中背刺激打折+脊柱负荷。胸必须贴实</li><li>握距不够宽=和窄距没有区别=两��的互补性丢失。必须1.5-2倍肩宽</li><li>耸肩到顶峰=斜方肌上束抢活=背阔肌下部刺激被分走</li></div><div class="alt-sm"><div class="t">可替换</div>杠铃俯身划船宽握（自由重量版本）/ 宽握坐姿绳索划船 / 直臂下拉（替代角度，偏下沿）</div>
 `;
 
 case'窄距对握坐姿绳索划船':return`
-<div class="wt-r">首周40kg。V把窄握。脊柱有靠垫=McGill安全方案——腰方肌不代偿。</div><div class="phase"><div class="phase-t">1 设置</div><ol><li>窄握V把。双脚踏实前方踏板，膝盖微屈。臀后坐，背<strong>贴紧靠垫</strong></li><li>手臂完全伸直——肩胛骨前伸——中下背肌群被动拉长</li><li>胸椎微伸展——挺胸但不弓腰。核心收紧。头部正中——不低头不抬头</li></ol></div><div class="phase"><div class="phase-t">2 拉 · 向心（1-2秒）</div><ol><li><strong>第一步：肩胛骨后收</strong>——先夹肩胛骨。这是所有划船的灵魂</li><li>第二步：屈肘后拉，V把拉到<strong>腹部</strong>位置（不是胸口！胸口=中上背接管）</li><li>顶峰：肩胛骨完全收紧——中下斜方和菱形肌用力挤压。保持半秒</li></ol></div><div class="phase"><div class="phase-t">3 回放 · 离心（2-3秒）</div><ol><li>有控制让手臂回到伸直——肩胛骨前伸——背阔肌被动拉长</li><li>整个过程身体不后仰——靠垫的作用就是防止你借体重。不停留，下一组</li></ol></div><div class="bre">拉时呼，回时吸</div><div class="mm">先动肩胛骨，再动肘。背比手臂先工作——这是所有划船的灵魂。拉到腹部不是胸口。</div><div class="err-sm"><div class="t">常见错误</div><li>身体后仰太多=用体重+腰部借力=背没刺激+腰受累。背贴紧靠垫，靠垫就是防止这个的</li><li>手先拉，肩胛骨没夹=背的刺激减半。先夹肩胛骨再动手臂——这个顺序是铁律</li><li>拉到胸口而不是腹部=中上背被激活=中下背的孤立刺激打折。V把的目标是腹部</li></div><div class="alt-sm"><div class="t">可替换</div>单臂哑铃划船（单侧独立，纠正左右不平衡）/ 胸部支撑哑铃划船（脊柱零负荷，更安全版本）/ 杠铃俯身划船反握（自由重量版本）</div>
+<div class="wt-r">首周40kg。V把窄握。脊柱有靠垫=McGill安全方案——腰方肌不代偿。</div><div class="phase"><div class="phase-t">1 设置</div><ol><li>窄握V把。双脚踏实前方踏板，膝盖微屈。臀后坐，背<strong>贴紧靠垫</strong></li><li>手臂完全伸直——肩胛骨前伸——中下背肌群被动拉长</li><li>胸椎微伸展——挺胸但不弓腰。核心收紧。头部正中——不低头不抬头</li></ol></div><div class="phase"><div class="phase-t">2 拉 · 向心（1-2秒）</div><ol><li><strong>第一步：肩胛骨后收</strong>——先夹肩胛骨。这是所有划船的灵魂</li><li>第二步：屈肘后拉，V把拉到<strong>腹部</strong>位置（不是胸口！胸口=中上背接管）</li><li>顶峰：肩胛骨完全收紧——中下斜方和菱形肌用力挤压。保持半秒</li></ol></div><div class="phase"><div class="phase-t">3 回放 · 离心（2-3秒）</div><ol><li>有控制让手臂回到伸直——肩胛骨前��——背阔肌被动拉长</li><li>整个过程身体不后仰——靠垫的作用就是防止你借体重。不停留，下一组</li></ol></div><div class="bre">拉时呼，回时吸</div><div class="mm">先动肩胛骨，再动肘。背比手臂先工作——这是所有划船的灵魂。拉到腹部不是胸口。</div><div class="err-sm"><div class="t">常见错误</div><li>身体后仰太多=用体重+腰部借力=背没刺激+腰受累。背贴紧靠垫，靠垫就是防止这个的</li><li>手先拉，肩胛骨没夹=背的刺激减半。先夹肩胛骨再动手臂——这个顺序是铁律</li><li>拉到胸口而不是腹部=中上背被激活=中下背的孤立刺激打折。V把的目标是腹部</li></div><div class="alt-sm"><div class="t">可替换</div>单臂哑铃划船（单侧独立，纠正左右不平衡）/ 胸部支撑哑铃划船（脊柱零负荷，更安全版本）/ 杠铃俯身划船反握（自由重量版本）</div>
 `;
 
 case'直臂绳索下拉':return`
-<div class="wt-r">滑轮最高，装直杆。首周20kg。轻重量=控制为王。</div><div class="phase"><div class="phase-t">1 设置</div><ol><li>滑轮调至<strong>最高</strong>（超过头顶）。正握直杆（或绳索把手）。后退一步</li><li>手臂在身体前方与肩平或稍高。手臂<strong>微屈5-10度</strong>——肘角全程固定不变</li><li>身体微前倾（约10-15度），核心收紧。脚一前一后或与肩同宽</li></ol></div><div class="phase"><div class="phase-t">2 下拉 · 向心（1-2秒）</div><ol><li>手臂伸直保持（肘角不变），从头顶高度下拉到大腿前方。只有<strong>肩关节</strong>在动——手臂是一根直棍</li><li>下拉到大腿前时，肩胛骨微微后收。顶峰：背阔肌下沿用力收紧</li></ol></div><div class="phase"><div class="phase-t">3 回放 · 离心（2-3秒）</div><ol><li>有控制让手臂回到头顶高度——背阔肌下沿被拉长。这是下沿生长的关键阶段</li><li><strong>手臂始终微屈，肘角不变</strong>。不停留，触即拉下一组</li></ol></div><div class="bre">下拉时呼，回放时吸</div><div class="mm">手臂是一根直棍——只有肩关节在动。肘弯了=变成划船=下沿刺激归零。全程感受背阔肌最下沿的收缩和拉伸。</div><div class="err-sm"><div class="t">常见错误</div><li>手臂弯曲=下拉变成划船动作=背阔肌下沿孤立刺激归零。保持5-10度微屈固定</li><li>重量太大=用身体后仰借力=下沿孤立效果消失。降重，控制为王</li><li>手臂完全伸直锁死=肘关节承受全部张力=肘不适。保持微屈</li></div><div class="alt-sm"><div class="t">可替换</div>哑铃仰卧直臂上拉/Pullover（背阔肌极致拉伸，杠铃或哑铃版本）/ 直臂杠铃下拉 / 高位绳索下拉（滑轮最高位版本）</div>
+<div class="wt-r">滑轮最高，装直杆。首周20kg。轻重量=控制为王。</div><div class="phase"><div class="phase-t">1 设置</div><ol><li>滑轮调至<strong>最高</strong>（超过头顶）。正握直杆（或绳索把手）。后退一步</li><li>手臂在身体前方与肩平或稍高。手臂<strong>微屈5-10度</strong>——肘角全程固��不变</li><li>身体微前倾（约10-15度），核心收紧。脚一前一后或与肩同宽</li></ol></div><div class="phase"><div class="phase-t">2 下拉 · 向心（1-2秒）</div><ol><li>手臂伸直保持（肘角不变），从头顶高度下拉到大腿前方。只有<strong>肩关节</strong>在动——手臂是一根直棍</li><li>下拉到大腿前时，肩胛骨微微后收。顶峰：背阔肌下沿用力收紧</li></ol></div><div class="phase"><div class="phase-t">3 回放 · 离心（2-3秒）</div><ol><li>有控制让手臂回到头顶高度——背阔肌下沿被拉长。这是下沿生长的关键阶段</li><li><strong>手臂始终微屈，肘角不变</strong>。不停留，触即拉下一组</li></ol></div><div class="bre">下拉时呼，回放时吸</div><div class="mm">手臂是一根直棍——只有肩关节在动。肘弯了=变成划船=下沿刺激归零。全程感受背阔肌最下沿的收缩和拉伸。</div><div class="err-sm"><div class="t">常见错误</div><li>手臂弯曲=下拉变成划船动作=背阔肌下沿孤立刺激归零。保持5-10度微屈固定</li><li>重量太大=用身体后仰借力=下沿孤立效果消失。降重，控制为王</li><li>手臂完全伸直锁死=肘关节承受全部张力=肘不适。保持微屈</li></div><div class="alt-sm"><div class="t">可替换</div>哑铃仰卧直臂上拉/Pullover（背阔肌极致拉伸，杠铃或哑铃版本）/ 直臂杠铃下拉 / 高位绳索下拉（滑轮最高位版本）</div>
 `;
 
 case'锤式弯举':return`
@@ -332,7 +338,7 @@ case'锤式弯举':return`
 `;
 
 case'死虫式':return`
-<div class="wt-r">首周自重。下次可手持1-2kg哑铃+脚踝夹轻哑铃。<strong>不练腹直肌=不增腰围。</strong></div><div class="phase"><div class="phase-t">1 设置 · 身体位置</div><ol><li>仰卧。手臂<strong>伸直指向天花板</strong>。腿抬起至<strong>桌面位</strong>（髋90度+膝90度）</li><li><strong>下背平贴地面</strong>——这是最关键的一步。手掌塞进腰下，刚好能塞进去=正确。腰弓起来=核心松了=动作作废</li><li>收紧核心——想象肚脐往脊柱方向拉。整个腹部像一个压紧的弹簧</li><li>自然呼吸，不憋气。这是稳定性训练，不是力量训练</li></ol></div><div class="phase"><div class="phase-t">2 动作 · 抗旋转（3秒下放，2秒回）</div><ol><li><strong>对侧手脚</strong>同时缓慢下放（右手+左脚同时，或左手+右脚同时）</li><li>手臂过头（不触地），腿伸直（脚离地<strong>约5cm不触地</strong>）——悬空是关键</li><li>保持2秒在最远端，然后有控制回到起始。换对侧。全程<strong>下背不能离开地面</strong>——一旦腰弓起来就停</li><li>每一次只动一只手和一只脚——身体其余部位像石头一样不动。这才是抗旋转</li></ol></div><div class="bre">自然呼吸，下放时吸，回时呼。不憋气</div><div class="mm">身体像装了水的杯子——水（腹部）不能晃出来。慢，控制，稳。</div><div class="err-sm"><div class="t">常见错误</div><li>下背弓离地面=核心没在工作=腰椎在代偿=腰会痛。手掌塞腰下自检</li><li>太快（不到2秒）=惯性代替了抗旋转=核心刺激归零。这个是稳定性训练不是速度训练</li><li>憋气=腹压靠憋气而非核心肌肉维持=白练。自然呼吸</li><li>脚触地=失去底部悬挂的核心挑战=动作作废</li></div><div class="alt-sm"><div class="t">可替换</div>鸟狗式/Bird Dog（更基础，四足跪姿版本）/ 帕洛夫推/Pallof Press（龙门架抗旋转黄金动作，能加重）/ 平板支撑（等长核心，不练抗旋转）</div>
+<div class="wt-r">首周自重。下次可手持1-2kg哑铃+脚踝夹轻哑铃。<strong>不练腹直肌=不增腰围。</strong></div><div class="phase"><div class="phase-t">1 设置 · 身体位置</div><ol><li>仰卧。手臂<strong>伸直指向天花板</strong>。腿抬起至<strong>桌面位</strong>（髋90度+膝90度）</li><li><strong>下背平贴地面</strong>——这是最关键的一步。手掌塞进腰下，刚好能塞进去=正确。腰弓起来=核心松了=动作作废</li><li>收紧核心——想象肚脐往脊柱方向拉。整个腹部像一个压紧的弹簧</li><li>自然呼吸，不憋气。这是稳定性训练，不是力量训练</li></ol></div><div class="phase"><div class="phase-t">2 动作 · 抗旋转（3秒下放，2秒回）</div><ol><li><strong>对侧手脚</strong>同时缓慢下放（右手+左脚同时，或左手+右脚同时）</li><li>手臂过头（不触地），腿伸直（脚离地<strong>约5cm不触地</strong>）——悬空是关键</li><li>保持2秒在最远端，然后有控制回到起始。换对侧。全程<strong>下背不能离开地面</strong>——一旦腰弓起来就停</li><li>每一次只动一只手和一只脚——身体其余部位像石头一样不动。这才是抗旋转</li></ol></div><div class="bre">自然呼吸，下放时吸，回时呼。不憋气</div><div class="mm">身体像装了水的杯子——水（腹部）不能晃出来。慢，控制，稳。</div><div class="err-sm"><div class="t">常见错误</div><li>下背弓离地面=核心没在工作=腰椎在代���=腰会痛。手掌塞腰下自检</li><li>太快（不到2秒）=惯性代替了抗旋转=核心刺激归零。这个是稳定性训练不是速度训练</li><li>憋气=腹压靠憋气而非核心肌肉维持=白练。自然呼吸</li><li>脚触地=失去底部悬挂的核心挑战=动作作废</li></div><div class="alt-sm"><div class="t">可替换</div>鸟狗式/Bird Dog（更基础，四足跪姿版本）/ 帕洛夫推/Pallof Press（龙门架抗旋转黄金动作，能加重）/ 平板支撑（等长核心，不练抗旋转）</div>
 `;
 
 default:return'';
@@ -396,7 +402,7 @@ const LOGS={'2026-05-21':{planType:'推2',actual:[
 {type:'alert',t:'上斜30°卧推·被压杠',p:'55kg太重。6·6·5(第三组第5次失败被压)。方案要求8-10次而只做到5-6次→重量远超目标区间。RIR=0=失败。无保护时极度危险。',fix:'下周降至50kg·目标3×8-10·RIR 1-2·绝不推到失败'},
 {type:'find',t:'平板卧推·少一组',p:'60→65→65kg·只做了3组(计划4组)。65kg×6在目标范围低端。',fix:'下周4组全做·65kg×6-8'},
 {type:'alert',t:'站姿实力推·大幅衰减',p:'40kg:5→4→2。第3组仅2次=深度疲劳。加做了第4组35kg×9作为补偿。RIR=0而非计划的2。',fix:'下周维持40kg·接受5·4·3模式·不强加第4组·注意右竖脊肌在站姿时参与'},
-{type:'find',t:'绳索面拉·左腕改善',p:'10kg 3×15稳定。左腕外旋比之前好了一点点——周六的肩袖纠正训练在起效。',fix:'保持10kg·持续关注左腕外旋活动度'}
+{type:'find',t:'绳索面拉·左腕改善',p:'10kg 3×15稳定。左��外旋比之前好了一点点——周六的肩袖纠正训练在起效。',fix:'保持10kg·持续关注左腕外旋活动度'}
 ],summary:{done:'7/7动作·推1完成',good:'深蹲稳定·腿举找到重量·腿弯举稳定·面拉左腕改善',bad:'上斜被压(55kg太重)·实力推5→4→2·平板少一组',adj:'上斜降至50kg·实力推维持40kg·平板确保4组·腿举80kg起步',next:'2026-06-01'}},
 
 	'2026-05-26':{planType:'拉1',actual:[
@@ -426,7 +432,7 @@ const LOGS={'2026-05-21':{planType:'推2',actual:[
 {type:'find',t:'上斜哑铃卧推·稳定',p:'18kg 10·10·8·7。左肘仅第3组出现酸而无力——比之前每组都酸明显减轻。',fix:'维持18kg·目标4×10-12'},
 {type:'find',t:'蝴蝶机夹胸·升重信号',p:'30kg 3×10轻松·状态极好。你已经超适应这个重量。',fix:'下周升至<strong>35kg</strong>·3×10-12'},
 {type:'find',t:'平板哑铃卧推·稳定',p:'18kg 3×10全部完成。',fix:'维持18kg·下次3×12'},
-{type:'find',t:'侧平举·后两组力竭',p:'5kg 15·15·11·8。第三组从11次力竭·正常容量日衰减。',fix:'维持5kg·目标4×15-20·接受后两组递减'},
+{type:'find',t:'侧平举·后两组力竭',p:'5kg 15·15·11·8���第三组从11次力竭·正常容量日衰减。',fix:'维持5kg·目标4×15-20·接受后两组递减'},
 {type:'find',t:'绳索下压·手腕不适',p:'25kg 9·8·9。手腕别扭·比上次差。不是力量退步——手腕角度·杠铃不在掌根。三头交换顺序后下压时三头已预疲劳·手腕代偿窄',fix:'维持25kg·手腕直·杠铃在掌根。持续不适则降20kg'},
 {type:'find',t:'绳索面拉·左腕外旋大改善',p:'10kg 3×15顺畅。左腕外旋受限非常低·不需要等到第10次——一次做完15次。周六肩袖纠正训练在累积起效。',fix:'维持10kg·近期最明显进步信号'}
 ],summary:{done:'推2完成·8/8动作',good:'蝴蝶机太轻松·面拉左腕大改善·平板稳定',bad:'侧平举后两组力竭·绳索下压手腕不适',adj:'蝴蝶机升35kg·下压注意手腕角度',next:'2026-06-04'}},'2026-05-29':{planType:'拉2',actual:[
@@ -450,7 +456,7 @@ const LOGS={'2026-05-21':{planType:'推2',actual:[
 {n:6,wt:'2.5kg',rep:'25·18',bar:'in-g',barW:75,flag:'恢复日·到位',flagC:'fl-g'}
 ],analysis:[
 {type:'find',t:'肩袖外旋·改善',p:'肘贴身体+90度外展位各2x15。左腕外旋角度比上周增加——面拉的改善在周六得到了验证。',fix:'持续每周六做·外旋角度不痛为底线'},
-{type:'find',t:'筋膜球胸肌+墙角拉伸',p:'新增的两个胸肌放松项目第一天做。胸小肌过紧→肩胛前移。放松后肩胛后收肌能正常启动。',fix:'每周六+推日前持续做'},
+{type:'find',t:'筋膜球胸肌+墙角拉伸',p:'新增的两个胸肌放松项目第一天做。胸小肌过紧→肩胛前移。放松后��胛后收肌能正常启动。',fix:'每周六+推日前持续做'},
 {type:'find',t:'侧平举·血流促进',p:'2.5kg 25+18。第二组18次力竭——恢复日目的已达到·不是练中束是促进肩周血流。',fix:'维持2.5kg'}
 ],summary:{done:'恢复日完成·新增胸肌放松',good:'外旋角度增加·。空技术·筋膜球',bad:'左肩胛前移需持续纠正',adj:'每周六筋膜球+墙角拉伸',next:'—'}},'2026-06-01':{planType:'推1',actual:[
 {n:1,wt:'80kg',rep:'7·7·7·7',bar:'in-g',barW:95,flag:'进步·多1次/组',flagC:'fl-g'},
@@ -481,7 +487,7 @@ const LOGS={'2026-05-21':{planType:'推2',actual:[
 {type:'find',t:'T杆划船·显著改善',p:'30kg 8·8·7·8——上周35kg 4×6全部变形·降重后形式修复。第3组差1次不影响判断。',fix:'维持30kg·目标4×8-10·形式>重量'},
 {type:'find',t:'引体向上·肩胛沉仍弱',p:'9格 8·8·6·6。第二三组肩胛下沉感弱。和上周一样——拉日第一个背动作肩胛后收肌的新鲜度就是不够。',fix:'保持9格·后两组不强求。弹力带拉开要在热身时做'},
 {type:'find',t:'坐姿绳索划船·肩胛感微改善',p:'45kg 10·10·8。肩胛后缩感觉比上两周强了一点点——筋膜球胸肌放松在起效。',fix:'维持45kg·持续胸肌放松'},
-{type:'find',t:'绳索面拉·前束代偿',p:'10kg 15·15·14。第三组肩前束酸——滑轮可能偏高或疲劳时前束抢活。',fix:'下周检查滑轮是否在面部高度·如果偏高调低·疲劳时不借前束'}
+{type:'find',t:'绳索面拉·前束代偿',p:'10kg 15·15·14。第三组肩���束酸——滑轮可能偏高或疲劳时前束抢活。',fix:'下周检查滑轮是否在面部高度·如果偏高调低·疲劳时不借前束'}
 ],summary:{done:'拉1完成·8/8动作',good:'RDL 3x9·T杆30kg改善·哑铃真举稳定',bad:'引体肩胛弱·面拉前束代偿',adj:'T杆30kg维持·面拉检查滑轮高度·RDL目标3x10',next:'2026-06-09'}},
 '2026-06-04':{planType:'推2',actual:[
 {n:1,wt:'18kg',rep:'10·10·10·8',bar:'in-g',barW:80,flag:'4组力竭',flagC:'fl-g'},
@@ -513,7 +519,7 @@ const LOGS={'2026-05-21':{planType:'推2',actual:[
 {type:'find',t:'坐姿绳索划船·稳定',p:'40kg 3×10。肩胛骨后缩感受比上周好。',fix:'维持40kg·目标3×10-12'},
 {type:'find',t:'直臂绳索下拉·稳定',p:'20kg 3×12。所有组完成。',fix:'维持20kg·下次尝试22.5kg'},
 {type:'find',t:'锤式弯举·左臂持续改善',p:'7.5kg 3×10。左臂感受已完全恢复。',fix:'维持7.5kg·单侧交替'},
-{type:'find',t:'绳索面拉·二头近肘处酸',p:'10kg 15·15·13。第3组第12次力竭。二头靠近肘关节处酸——肱桢肌(brachioradialis)代偿。握力不足或第3组疲劳时前臂抢活。',fix:'维持10kg·注意握持不过紧——手只是钩子'},
+{type:'find',t:'绳索面拉·二头近肘处酸',p:'10kg 15·15·13。第3组第12次力竭。二头靠近肘关节处酸——肱桢肌(brachioradialis)代偿。握力不足或第3组疲��时前臂抢活。',fix:'维持10kg·注意握持不过紧——手只是钩子'},
 {type:'find',t:'死虫式·真空技术需巩固',p:'2×15。第2组第12次下腰酸——真空技术第2组还不够稳定。',fix:'维持2×15·第2组专注真空——肚脐向脊柱方向吸进去'}
 ],summary:{done:'拉2完成·7/7动作',good:'T杆重大改善·高位下拉稳定·锤式左臂恢复',bad:'面拉二头酸·死虫式二组下腰酸',adj:'T杆30kg吸气技术·面拉松握·死虫真空巩固',next:'2026-06-12'}},'2026-06-08':{planType:'推1',actual:[
 {n:1,wt:'80kg',rep:'8·8·8·8',bar:'in-y',barW:70,flag:'3-4组变形·累',flagC:'fl-y'},
@@ -535,7 +541,7 @@ const LOGS={'2026-05-21':{planType:'推2',actual:[
 // ═══════ ADJUSTMENTS ═══════
 const ADJ={
 '2026-06-15':{notes:['杠铃深蹲：80kg·<strong>考虑减至3x8</strong>或保持4x8延长休息5min（6/8 4x8达成但3-4组变形·接近MRV·需缓冲）','腿举：维持80kg·3x10-12','俯卧腿弯举：维持35kg·3x10-12','平板杠铃卧推：维持65kg·目标4x7（6/8第三次被压杠·CNS被深蹲消耗·不是力量问题）','上斜30度杠铃卧推：维持50kg·目标3x8-10','站姿实力推：35kg起步·接受低次数——前锯肌是瓶颈·推2已换俯卧撑加针对性训练','绳索面拉：维持10kg']},
-'2026-05-25':{notes:['⚠️ 右侧竖脊肌中下部+右髋酸痛·三大原因：①周六大扫除(McGill低负荷高重复累积)②周五髋屈肌拉伸过猛(髂腰肌微创伤)③恢复日疲劳叠加','杠铃深蹲：热身时评估右侧竖脊肌酸痛·酸>3/10→降重至70kg或直接跳过高脚杯深蹲(下肢刺激不丢·脊柱零负荷)','腿举：正常做·不受影响','坐姿腿弯举：正常做','平板杠铃卧推+上斜30°杠铃卧推：正常做·上肢不受影响','站姿实力推：竖脊肌维持站姿会参与·如酸则改坐姿哑铃推举(肩刺激不变·脊柱安全)','绳索面拉：正常做','核心原则：脊柱酸痛时不做脊柱负荷动作·非脊柱负荷动作正常做·SRA周期管理——恢复不完全时强行加载脊柱=风险远大于收益']},'2026-05-23':{notes:['跑步机：速度4-5 km/h·坡度0-1%·25-30min·能边做边正常说话=强度正确·喘了就降速','哑铃侧平举(极轻)：用5kg·15-20次×2组·强制3秒离心·目的是血流促进恢复·不是练中束·离心控制比次数重要','弹力带拉开额外多做一组·菱形肌耐力累积']},
+'2026-05-25':{notes:['⚠️ 右侧竖脊肌中下部+右髋酸痛·三大原因：①周六大扫除(McGill低负荷高重复累积)②周五髋屈肌拉伸过猛(髂腰肌微创伤)③恢复日疲劳叠加','杠铃深蹲：热身时评估右侧竖脊肌酸痛·酸>3/10→降重至70kg或直接跳过高脚杯深蹲(下肢刺激不丢·脊柱零负荷)','腿举：正常做·不受影响','坐姿腿弯举：正常做','平板杠铃卧推+上斜30°杠铃卧推：正常做·上肢不受影响','站姿实力推：竖脊肌维持站姿会参与·如酸则改坐姿哑铃推举(肩刺激不��·脊柱安全)','绳索面拉：正常做','核心原则：脊柱酸痛时不做脊柱负荷动作·非脊柱负荷动作正常做·SRA周期管理——恢复不完全时强行加载脊柱=风险远大于收益']},'2026-05-23':{notes:['跑步机：速度4-5 km/h·坡度0-1%·25-30min·能边做边正常说话=强度正确·喘了就降速','哑铃侧平举(极轻)：用5kg·15-20次×2组·强制3秒离心·目的是血流促进恢复·不是练中束·离心控制比次数重要','弹力带拉开额外多做一组·菱形肌耐力累积']},
 '2026-05-28':{notes:['⚠️ 昨晚睡眠碎片化(耳塞痛+胃酸+邻居吵)·身体疲劳但仍可练','上斜30°哑铃卧推(50kg)：热身充分·疲劳时神经系统启动比平时慢','蝴蝶机夹胸：正常做','平板哑铃卧推：正常做·注意左肘Reinold三件事(腕微外旋·组间伸屈肘·肘指脚)','高位绳索夹胸：正常做','哑铃侧平举：5kg·强制3秒离心','绳索下压(反握)+绳索过头伸展：正常做·三头动作顺序维持上周调整','绳索面拉：正常做','<strong>如果中途明显比平时累→减1-2组·不硬顶</strong>']},
 
 '2026-05-29':{notes:['锤式弯举：单手交替做·左侧5-7.5kg·眼看左臂·意识集中肱肌收缩（5/26拉1左臂弯举感受已恢复·可尝试7.5kg）','T杆划船(宽距正握)：<strong>降至30kg</strong>·目标4×8-10·先夹肩胛骨再拉（5/26拉1的T杆35kg后3次变形）','宽握下拉：注意后两组不要拉到力竭·容量日RIR 1','直臂绳索下拉：肩胛先启动——背日所有动作的核心原则','绳索面拉：维持10kg·左腕外旋已大幅改善（5/28推2 3×15顺畅·不再需缩小幅度）','死虫式：减至2×10·每1次自检腰不离开地面·宁可少不代偿','📌 周六(5/30)弹力带拉开额外多做一组·菱形肌耐力累积适应']},
@@ -551,7 +557,7 @@ const ADJ={
 // 郝万山+王琦联合穷举全部身体波动·每条通用加减覆盖每一天
 const U=[ // 通用加减（每一天都显示）
 '🔥 上火/咽喉痛/口疮/牙龈出血 → +菊花3-5g（胎菊约一小撮·🟠关火前1-2min放入）+麦冬2-3g（同煮）',
-'😴 昨晚睡不好/多梦易醒 → 睡前酸枣仁加至4g（本日无酸枣仁则新增3g·拍碎沸水泡）',
+'😴 昨晚���不好/多梦易醒 → 睡前酸枣仁加至4g（本日无酸枣仁则新增3g·拍碎沸水泡）',
 '🧠 午觉过长/脑力昏沉/白天精神差 → +石菖蒲3g（🟠关火前1-2min放入）',
 '💧 口干/咽干 → +麦冬2-3g 或 泡无花果2颗（和众药同煮）',
 '😰 焦虑/压力大/心烦 → +玫瑰花3朵（🟠关火前放）或 +百合2g',
@@ -566,30 +572,13 @@ const U=[ // 通用加减（每一天都显示）
 '🗣️ 声音嘶哑/用嗓过度 → +麦冬2g+无花果2颗',
 '👁️ 眼睛干涩/屏幕眼 → 每日护眼茶已覆盖（枸杞+菊花·下午泡）'];
 const TEA={
-推1:{f:'<strong>五指毛桃12g</strong> + 太子参3g + 茯苓4g + 玉竹4g + 莲子5g + 陈皮1g + <strong>天麻2g</strong>',
-  s:'🔵 茯苓+天麻提前冷水浸泡10分钟',
-  n:['⭐ 天麻仅周一用。训练后无头胀/气血上冲→降1g或直接去掉','⭐ 天麻后口干加重→立即停天麻·改+麦冬3g','上午8点-下午3点分2-3杯喝完']},
-拉1:{f:'<strong>五指毛桃12g</strong> + 太子参3g + 茯苓4g + 玉竹3g + 莲子5g + 陈皮1g + <strong>金边玫瑰3朵</strong>',
-  s:'🔵 茯苓浸10min · 🟠 玫瑰关火前1-2min放入',
-  n:['⭐ 本日已有玫瑰花·疏肝解郁已在配方中','⭐ RDL后腘绳肌酸痛→通用加减中已有五味子']},
-推2:{f:'<strong>五指毛桃10g</strong> + 太子参3g + 茯苓4g + 玉竹4g + 莲子5g + 陈皮1g + <strong>麦冬3g</strong>',
-  s:'🔵 茯苓提前浸泡10分钟',
-  n:['⭐ 本日已有麦冬·口干加量至5g即可','⭐ 容量日出汗多→通用加减中面有五味子+黄芪']},
-拉2:{f:'<strong>五指毛桃12g</strong> + 黄芪5g + 茯苓4g + 玉竹3g + 莲子5g + 桑葚干6颗 + 五味子3粒 + <strong>石菖蒲3g</strong>',
-  s:'🔵 茯苓+黄芪浸10min · 🟡 五味子轻拍裂 · 🟠 石菖蒲后下',
-  n:['⭐ 本日已有石菖蒲+五味子·脑力昏沉和肌肉酸痛已覆盖','⭐ 睡前1h：炒酸枣仁3g(拍碎·沸水泡) — 本周五特加','⭐ 腰部酸软→桑葚干加至10颗 或 +枸杞5g（本日已有桑葚干）']},
-休:{f:'<strong>白天：</strong>茯苓4g + 玉竹4g + 百合4g + 莲子5g + 陈皮1g + 桑葚干6颗 + <strong>石菖蒲3g</strong><br><strong>睡前1h：</strong>炒酸枣仁3g(刀背拍碎·沸水泡·焖3分钟)',
-  s:'🔵 茯苓浸10min · 🟠 石菖蒲后下 · 🔴 酸枣仁单独处理(拍碎泡)',
-  n:['⭐ 本日已有石菖蒲+酸枣仁·脑力昏沉和睡眠问题已在配方中','⭐ 酸枣仁连用3天仍无效→告诉我·考虑换方','⭐ 休息日特别疲劳→太子参5g（补清阳之气上达头目）']},
-恢复:{f:'茯苓5g + 莲子5g + 陈皮1g + 五味子3粒 + <strong>炒麦芽5g</strong>',
-  s:'🔵 茯苓浸10min · 🟡 五味子轻拍裂',
-  n:['⭐ 本日已有五味子+炒麦芽·肌肉酸痛和消化问题已在配方中','⭐ 今天外出不方便煮→可跳过·周六是所有天里最可跳的']},
-休日:{f:'<strong>全天只喝白开水</strong>',s:'让脾胃休息一天',n:[
-  '⭐ 周日让脾胃休息·所有加减只泡不煮·用量减半',
-  '口干非常严重→泡无花果2颗当水喝（💧通用已覆盖）',
-  '整周睡眠差→晚上加酸枣仁3g（😴通用已覆盖·本周特例）',
-  '上火→+菊花3-5g（胎菊约一小撮·🟠后下）泡水（🔥通用已覆盖·只喝水不煮）',
-  '昏沉→+石菖蒲2g泡水（🧠通用已覆盖·只泡不煮）']}
+	上肢推:{f:'<strong>五指毛桃12g</strong> + 太子参3g + 茯苓4g + 玉竹4g + 莲子5g + 陈皮1g + <strong>天麻2g</strong>',s:'🔵 茯苓+天麻提前冷水浸泡10分钟',n:['上午8点-下午3点分2-3杯喝完']},
+	下肢背:{f:'<strong>五指毛桃12g</strong> + 太子参3g + 茯苓4g + 玉竹3g + 莲子5g + 陈皮1g + <strong>金边玫瑰5-6朵</strong>',s:'🔵 茯苓浸10min · 🟠 玫瑰关火前1-2min放入',n:['上午8点-下午3点分2-3杯喝完']},
+	上肢推拉:{f:'<strong>五指毛桃10g</strong> + 太子参3g + 茯苓4g + 玉竹4g + 莲子5g + 陈皮1g + <strong>麦冬3g</strong>',s:'🔵 茯苓提前浸泡10分钟',n:['上午8点-下午3点分2-3杯喝完']},
+	拉辅助:{f:'<strong>五指毛桃12g</strong> + 黄芪5g + 茯苓4g + 玉竹3g + 莲子5g + 桑葚干6颗 + 五味子3粒 + <strong>石菖蒲3g</strong>',s:'🔵 茯苓+黄芪浸10min · 🟡 五味子轻拍裂 · 🟠 石菖蒲后下',n:['上午8点-下午3点分2-3杯喝完']},
+	休:{f:'<strong>白天：</strong>茯苓4g + 玉竹4g + 百合4g + 莲子5g + 陈皮1g + 桑葚干6颗 + <strong>石菖蒲3g</strong><br><strong>睡前1h：</strong>炒酸枣仁3g(刀背拍碎·沸水泡·焖3分钟)',s:'🔵 茯苓浸10min · 🟠 石菖蒲后下 · 🔴 酸枣仁单独处理(拍碎泡)',n:['上午8点-下午3点分2-3杯喝完']},
+	恢复:{f:'茯苓5g + 莲子5g + 陈皮1g + 五味子3粒 + <strong>炒麦芽5g</strong>',s:'🔵 茯苓浸10min · 🟡 五味子轻拍裂',n:['上午8点-下午3点分2-3杯喝完']},
+	休日:{f:'<strong>全天只喝白开水</strong>',s:'让脾胃休息一天',n:['周日让脾胃休息']}
 };
 const EYETEA='枸杞5g + 菊花1-2g（胎菊约5-8朵·沸水泡5分钟） · 每天下午3点前 · 护眼明目';
 
@@ -640,7 +629,7 @@ const TCM_LOG={
 																	'2026-06-04':{
 		  tongue:'舌质淡红 · 苔比昨日厚一点 · 齿痕明显 · 舌尖微红 · 舌下淡紫（稳定）',
 		  trend:'6/3→6/4：苔厚+齿痕反弹（不是饮食·是酸枣仁忘喝两天→睡眠中断→脾气运化变差）· 舌尖微红（微热·不严重）· 舌下淡紫稳定（血瘀改善没倒退）',
-			  diagnosis:'缺酸枣仁两天的连锁反应:睡眠中断(醒几次+想东西)→脾气运化差→苔厚+齿痕反弹。不是方向错了——是缺了一环。舌下淡紫稳定说明血瘀改善是持续的不是偶然。AC必须开·关窗必须·外界约束不变',
+			  diagnosis:'缺酸枣仁两天的连锁反应:睡眠中断(醒几次+想东西)→脾气运化差→苔厚+齿痕反弹。不是方向错了——是缺了一环。舌下淡紫稳定说明血瘀改善是持续的不���偶然。AC必须开·关窗必须·外界约束不变',
 			  tea_extra:'今日推2配方两处微调：<strong>茯苓4g→5g</strong>(苔厚·祛湿)+<strong>陈皮1g→1.5g</strong>(齿痕明显·温中化湿)·其余不变：五指毛桃10g+太子参3g+玉竹4g+莲子5g+麦冬3g·<strong>今晚睡前必须喝炒酸枣仁3g</strong>(刀背拍碎·沸水泡10min·焖3min)',
 			  watch:['酸枣仁今晚必须喝——缺了两天·睡眠中断是苔厚和齿痕的主因','明天晨起看苔和齿痕是否退回去——验证酸枣仁的连锁价值','舌下淡紫持续稳定→血瘀改善可靠·不是偶然波动','今天推2·蝴蝶机35kg第一次·坐姿哑铃推举第一次(10-12kg轻)','面拉检查滑轮在面部高度——上周3前束代偿']
 			},
@@ -666,7 +655,7 @@ const TCM_LOG={
 			  watch:['裂缝消失=麦冬5g养阴7天成果★','齿痕很轻微=脾气在修复·底子还在','酸枣仁今晚继续·拍碎沸水泡','舌下淡紫稳定→血瘀持续改善·不是偶然','今天拉2·T杆30kg·弹力带激活·直臂下拉22.5kg']
 			},
 '2026-06-03':{
-		  tongue:'舌质淡红 · 苔比昨日厚一些 · 齿痕比较明显 · 微裂缝存在（晨起空腹·标准）· 🆕舌下血管淡紫色——本周最大改善',
+		  tongue:'舌质淡红 · 苔比昨日厚一些 · 齿痕比较明显 · 微裂缝存在（晨起空腹·标准）· ��舌下血管淡紫色——本周最大改善',
 		  trend:'6/1→6/2→6/3：苔薄→厚（拉1大重量消耗脾气·正常波动）· 齿痕变明显（同上）· 裂缝微（不是昨日午餐后误判的消失·但没变深）· 舌下深青紫→淡紫（瘀血加速改善★）',
 		  diagnosis:'拉1后正常波动+瘀血改善加速。苔厚+齿痕=拉1大重量消耗脾气·休息日一过就回来。裂缝稳定·已变深。舌下从深青紫变淡紫——茯苓+陈皮+五指毛桃组合拳在推动血瘀·速度比预期快',
 		  tea_extra:'今日周三休息日<strong>陈皮1g→1.5g</strong>（温中化湿·针对齿痕反弹+苔厚）·其余不变：茯苓4g+玉竹4g+百合4g+莲子5g+桑葚干6颗+石菖蒲3g·睡前炒酸枣仁3g(拍碎泡)',
@@ -709,14 +698,14 @@ const TCM_LOG={
 		},
 '2026-05-27':{
 		  tongue:'舌质淡红 · 苔比昨日薄一点 · 舌尖仍微红 · 舌下青→淡青（持续改善）',
-		  trend:'5/25→5/26→5/27：湿气持续退（苔又薄了）· 舌下青紫→淡青（瘀血改善）· 🆕腿冷=脾阳虚信号浮现· 睡眠8.5h无中断=近期最佳',
+		  trend:'5/25→5/26→5/27��湿气持续退（苔又薄了）· 舌下青紫→淡青（瘀血改善）· 🆕腿冷=脾阳虚信号浮现· 睡眠8.5h无中断=近期最佳',
 		  diagnosis:'湿气继续退+🆕脾阳虚暴露。腿冷=脾阳不足·阳气不达四肢远端(脾主四肢)。以前可能也冷但睡眠碎注意不到。空调25°C寒气下沉·腿脚先冷。睡眠8.5h无中断=酸枣仁起效+心火不再扰神',
 		  tea_extra:'今日周三休息日·配方<strong>茯苓5g</strong>（维持祛湿力度·原4g→5g）+<strong>陈皮1.5g</strong>（温中理气对抗腿冷·原1g→1.5g）·其余不变：玉竹4g+百合4g+莲子5g+桑葚干6颗+石菖蒲3g·睡前炒酸枣仁3g(拍碎泡·继续——昨晚睡得好说明起效)',
 		  watch:['腿冷是脾阳虚的经典信号（脾主四肢·阳虚不达远端）·不是新问题——是底子露出来了·和裂缝浮现一样的性质','今晚空调26°C·薄被重点盖腿和脚·脾阳虚最怕寒从足起','苔持续变薄→茯苓5g维持·不继续加重','昨晚睡眠好→酸枣仁今晚继续·拍碎沸水泡·焖3min','完全休息日·不训练·脾胃和神经系统一起休']
 		},
 '2026-05-26':{
 	  tongue:'舌质淡红 · 苔比昨日厚 · 齿痕轻微出现 · 舌中微裂缝 · 舌下青紫（比昨日浅）',
-	  trend:'5/25→5/26：苔薄白→变厚（湿气反弹）· 无齿痕→轻微齿痕（脾虚信号再现）· 舌下青紫→微淡（改善）· 🆕多梦醒2-3次=心脾两虚',
+	  trend:'5/25→5/26：苔薄白→变厚（湿气反弹）· 无齿痕→���微齿痕（脾虚信号再现）· 舌下青紫→微淡（改善）· 🆕多梦醒2-3次=心脾两虚',
 	  diagnosis:'湿气反弹+心脾两虚。三条因果：①昨天推1高强度耗气→脾气更虚→运化水湿能力下降→苔厚+齿痕回来②空调寒气持续损脾阳(室外34-35°C/室内29°C·必须开)③脾虚不生化气血→心血不足→心神不宁→多梦易醒。裂缝稳定·舌下青紫改善是正面燕号',
 	  tea_extra:'今日拉1配方<strong>茯苓4g→5g</strong>（针对湿气反弹）+<strong>睡前炒酸枣仁3g</strong>（刀背拍碎·沸水泡·焖3min·针对多梦易醒）·其余不变：五指毛桃12g+太子参3g+玉竹3g+莲子5g+陈皮1g+金边玫瑰3朵',
 	  watch:['湿气反弹是推1耗气后的正常波动·不是方向错了——苔厚和齿痕验证脾虚湿盛底子还在','空调不可避·茶饮从内部温中健脾——茯苓5g+陈皮1g+五指毛桃12g是核心防线','酸枣仁今晚用·拍碎再泡·沸水焖3min·如果明天梦减少说明起效','睡眠7h30min·总时长够·但碎片化·今晚早睡11:30前上床','舌下青紫在变淡→气血循环在改善·继续观察']
@@ -732,21 +721,21 @@ const TCM_LOG={
   tongue:'舌质淡红 · 苔薄白 · 舌尖红 · 舌下青紫 · 🆕舌中微裂缝',
   trend:'5/22→5/24：红→淡红（阴虚逆转）· 厚白→薄白（湿气在退）· 舌烫大幅减轻· 底层阴虚裂缝浮现',
   diagnosis:'火退湿退·底层阴虚终于可见。裂缝=阴液长期不足·舌体失润。🆕右侧竖脊肌中下部+右髋酸痛→三大叠加：①周六大扫除(拖地擦厕所=持续脊柱微屈+静态负荷·McGill低负荷高重复累积)②周五髋屈肌拉伸过猛(臀前推太大力=髂腰肌微创伤+阔筋膜张肌牵拉)③恢复日本身有疲劳底子',
-  tea_extra:'今日周日·合并两组→<strong>菊花2g+麦冬3g+桑葚干5颗+五味子2粒(拍裂)+太子参3g</strong>（只泡不煮·沸水冲泡·焖5min·下午3点前喝完）——菊花+麦冬针对舌尖红+裂缝·桑葚干+五味子+太子参针对腰髋酸痛+扫除耗气',symptoms:'🆕右侧竖脊肌中下部+右髋酸痛·三大叠加：①周六大扫除(拖地擦厕所=持续脊柱微屈+静态负荷·McGill低负荷高重复累积)②周五髋屈肌拉伸过猛(臀前推太大力=髂腰肌微创伤+阔筋膜张肌牵拉)③恢复日本身有疲劳底子',
+  tea_extra:'今日周日·合并两组→<strong>菊花2g+麦冬3g+桑葚干5颗+五味子2粒(拍裂)+太子参3g</strong>（只泡不煮·沸水冲泡·焖5min·下午3点前喝完）——菊花+麦冬针对舌尖红+裂缝·桑葚干+五味子+太子参针对腰髋酸痛+扫除耗气',symptoms:'🆕右侧竖脊肌中下部+右髋酸痛·三大叠加：①周六大扫除(拖地擦厕所=持续脊柱微屈+静态负荷·McGill低负荷高重复累积)②周五髋屈肌拉伸过猛(臀前推太大力=髂腰肌微创伤+阔筋膜张肌牵拉)③恢复日本身��疲劳底子',
   watch:['裂缝修复需要2-4周·靠睡眠+麦冬+玉竹·不是几天的事','菊花+麦冬+桑葚干+五味子+太子参只泡不煮·沸水冲泡·焖5min·下午3点前喝完','今天完全休息·不训练·不出汗·让阴液自然回补','明天周一·大重量推1·右侧竖脊肌酸→深蹲评估·酸>3/10则降重至70kg或跳过高脚杯深蹲','站姿实力推→如果竖脊肌酸则改坐姿哑铃推举·不冒脊柱疲劳叠加风险','腿举/卧推/面拉不受影响·正常做']
 }};
 
 // ═══════ RECOVERY ═══════
 const REC={
-推1:[{r:'慢走冷身',d:'2min'},{r:'泡沫轴·股四头肌',d:'2min/侧'},{r:'泡沫轴·胸椎',d:'1min'},{r:'弹力带外旋·肘贴身体',d:'15次/侧'}],
-拉1:[{r:'泡沫轴·腘绳肌',d:'2min/侧'},{r:'悬挂肩拉伸',d:'30s×2'},{r:'弹力带拉开',d:'20次'}],
-推2:[{r:'泡沫轴·胸椎',d:'1min'},{r:'筋膜球·胸肌(比泡沫轴更精准)',d:'1.5min/侧'},{r:'弹力带外旋·90°外展位(趁热做!)',d:'15次/侧'},{r:'侧卧胸椎旋转',d:'10次/侧'}],
-拉2:[{r:'泡沫轴·腘绳肌',d:'1.5min/侧'},{r:'髋屈肌拉伸',d:'1min/侧'},{r:'弹力带拉开',d:'20次'}]
+	上肢推:[],
+	下肢背:[{r:'泡沫轴·股四头肌',d:'2min/侧'},{r:'泡沫轴·胸椎',d:'2min'},{r:'泡沫轴·腘绳肌',d:'2min/侧'},{r:'弹力带拉开',d:'20次'}],
+	上肢推拉:[{r:'筋膜球·胸肌',d:'1.5min/侧'},{r:'泡沫轴·胸椎',d:'1min'},{r:'弹力带外旋·90°外展位(趁热做!)',d:'15次/侧'},{r:'侧卧胸椎旋转',d:'10次/侧'}],
+	拉辅助:[{r:'泡沫轴·腘绳肌',d:'1.5min/侧'},{r:'髋屈肌拉伸',d:'1min/侧'},{r:'悬挂肩拉伸',d:'30s×2'},{r:'弹力带拉开',d:'20次'}]
 };
 
 // ═══════ CALENDAR ═══════
 let Y=2026,M=5;
-const TYPES={1:'推1',2:'拉1',3:'休',4:'推2',5:'拉2',6:'恢复',0:'休日'};
+const TYPES={1:'上肢推',2:'下肢背',3:'休',4:'上肢推拉',5:'拉辅助',6:'恢复',0:'休日'};
 const TAGCLS={1:'tg-t1',2:'tg-l1',3:'tg-x',4:'tg-t2',5:'tg-l2',6:'tg-r',0:'tg-x'};
 function ds(y,m,d){return y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0')}
 function getPlanType(d){return TYPES[new Date(d).getDay()]}
@@ -810,7 +799,7 @@ function showRestDay(dsKey,ptype){
 	  const teaType=isSun?'休日':'休';
 	  h+=dailySection()+teaSection(teaType,dsKey)+nutSection(ptype,dsKey);
 	  const noteKey='rn_'+dsKey;const saved=localStorage.getItem(noteKey)||'';
-	  h+='<div class="layer l2 collapsed"><div class="layer-t" onclick="this.parentElement.classList.toggle(&quot;collapsed&quot;)"><span>📝</span>身体状态记录</div>';
+	  h+='<div class="layer l2 collapsed"><div class="layer-t" onclick="this.parentElement.classList.toggle(&quot;collapsed&quot;)"><span>����</span>身体状态记录</div>';
 	  h+='<div style="padding:8px 10px"><textarea id="ta_'+dsKey+'" placeholder="记录今天的身体感受...\n比如：肌肉酸痛、关节不适、精神状态、睡眠质量、食欲、消化等" style="width:100%;height:110px;background:var(--c1);border:1px solid var(--b);color:var(--t);border-radius:6px;padding:8px;font-size:0.72em;resize:vertical;font-family:inherit" onchange="localStorage.setItem(\''+noteKey+'\',this.value)">'+saved+'</textarea></div>';
 	  h+='</div>';
 	  const nutKey='rnut_'+dsKey;const savedNut=localStorage.getItem(nutKey)||'';
@@ -846,13 +835,13 @@ case'泡沫轴·腘绳肌':return'<div class="phase"><div class="phase-t">① �
 case'悬挂肩拉伸':return'<div class="phase"><div class="phase-t">执行</div><ol><li>双手抓引体杆，握距与肩同宽。身体<strong>完全悬挂</strong>——脚离地</li><li>完全放松——让肩胛骨充分上提——肩关节囊被"拉开"</li><li>保持30秒×2组。引体+划船后肩关节囊被压缩→这个悬挂让它恢复空间</li></ol></div><div class="mm">全身放松——不要用力拉。让重力帮你拉开肩关节。</div>';
 case'弹力带拉开(pull-apart)':return'<div class="phase"><div class="phase-t">① 设置</div><ol><li>双手持弹力带，手臂<strong>伸直</strong>在胸前，与地面平行</li><li>掌心朝下或朝上——朝下=更多中下斜方，朝上=更多后束</li></ol></div><div class="phase"><div class="phase-t">② 执行</div><ol><li>手臂保持伸直→双手向<strong>两侧拉开</strong>弹力带→肩胛骨用力<strong>向后夹</strong></li><li>拉到弹力带触到胸前或下巴。顶峰肩胛完全收紧→2秒控制回。20次</li><li>这是中下斜方肌和后束的王牌激活动作</li></ol></div><div class="mm">手臂是两根直棍——只有肩胛骨在动。想象肩胛骨中间夹一支笔。</div>';
 case'筋膜球·胸肌':return'<div class="phase"><div class="phase-t">① 准备</div><ol><li>面对墙站立。将筋膜球（或网球）放在<strong>胸大肌和肩膀前侧之间</strong></li><li>身体向前压——用体重让球压入胸肌</li></ol></div><div class="phase"><div class="phase-t">② 执行</div><ol><li>找到胸肌里<strong>紧的"条索"</strong>（感觉像一根绷紧的弦）→停<strong>30-45秒</strong>，不加重力</li><li>慢慢抬手过头+放下（增加胸肌的滑动范围）。每侧1.5分钟</li><li>球比泡沫轴更精准——能直接命中胸肌和前三角肌之间的紧张点</li></ol></div><div class="mm">找那条<strong>绷紧的弦</strong>——停在上面等它松开。球比泡沫轴精准10倍。</div>';
-case'弹力带外旋·90°外展位':return'<div class="phase"><div class="phase-t">① 设置</div><ol><li>将弹力带固定在<strong>肩部高度</strong></li><li>大臂<strong>抬起90°</strong>（与肩平）——肘弯90°——前臂朝下</li><li>手抓弹力带。这是你<strong>肩外旋活动度受限的角度</strong></li></ol></div><div class="phase"><div class="phase-t">② 执行</div><ol><li>大臂固定不动——只有<strong>前臂向上旋转</strong>（掌心从朝下→旋转到朝前/朝上）</li><li><strong>小幅度开始</strong>——不追求全幅度。以<strong>不产生疼痛</strong>为底线</li><li>转到你当下的最大角度（可能比正常人少20-30°——正常！）→2秒控制回。15次/侧</li><li>这个动作<strong>趁热做</strong>——训练后肩关节囊最松弛，是改善活动度的黄金窗口</li></ol></div><div class="mm">你受限的角度！小幅度、不痛、趁热做。现在转不到90°没关系——每周多1°就是进步。千万不要为了追求幅度而产生疼痛。</div>';
+case'弹力带外旋·90°外展位':return'<div class="phase"><div class="phase-t">① 设置</div><ol><li>将弹力带固定在<strong>肩部高度</strong></li><li>大臂<strong>抬起90°</strong>（与肩平）——肘弯90°——前臂朝下</li><li>手抓弹力带。这是你<strong>肩外旋活动度受限的角度</strong></li></ol></div><div class="phase"><div class="phase-t">② 执行</div><ol><li>大臂固定不动——只有<strong>前臂向上旋转</strong>（掌心从朝下→旋转到朝前/朝上）</li><li><strong>小幅度开始</strong>——不追求全幅度。以<strong>不产生疼痛</strong>为底线</li><li>转到你当���的最大角度（可能比正常人少20-30°——正常！）→2秒控制回。15次/侧</li><li>这个动作<strong>趁热做</strong>——训练后肩关节囊最松弛，是改善活动度的黄金窗口</li></ol></div><div class="mm">你受限的角度！小幅度、不痛、趁热做。现在转不到90°没关系——每周多1°就是进步。千万不要为了追求幅度而产生疼痛。</div>';
 case'侧卧胸椎旋转':return'<div class="phase"><div class="phase-t">① 设置</div><ol><li>侧卧，双腿弯曲叠放。双手伸直在胸前合拢</li></ol></div><div class="phase"><div class="phase-t">② 执行</div><ol><li>上侧手从胸前<strong>划弧打开</strong>到身后——<strong>眼睛跟着手走</strong></li><li>关键是：只有<strong>胸椎</strong>在旋转——<strong>腰椎不动</strong>，髋不翻</li><li>转到胸椎的最大幅度→停2秒→回。10次/侧</li><li>推日后胸椎僵硬→影响第二天拉日的肩胛活动。这个动作打开胸椎→引体会更顺</li></ol></div><div class="mm">眼睛跟着手——这是让胸椎旋转的诀窍。腰和髋不动——只有上半身转。</div>';
-case'髋屈肌拉伸':return'<div class="phase"><div class="phase-t">① 设置</div><ol><li>单膝跪地——后膝着地，前膝90°。双手放在前膝上</li><li>骨盆<strong>不前倾不后倾</strong>——保持中立</li></ol></div><div class="phase"><div class="phase-t">② 执行</div><ol><li>臀<strong>向前推</strong>——感受后腿<strong>大腿根部前侧</strong>（髋屈肌）的拉伸</li><li>拉伸到有牵拉感但不疼。保持<strong>30秒</strong>，深呼吸</li><li>每侧1分钟。一周4天训练→髋屈肌累积缩短→深蹲时腰容易代偿</li></ol></div><div class="mm">骨盆保持中立——不前倾不后倾。拉伸的是大腿根前侧，不是腰。</div>';
+case'髋屈肌拉伸':return'<div class="phase"><div class="phase-t">① 设置</div><ol><li>单膝跪地——后膝着地，前膝90°。双手放在前膝上</li><li>骨盆<strong>不前倾不后��</strong>——保持中立</li></ol></div><div class="phase"><div class="phase-t">② 执行</div><ol><li>臀<strong>向前推</strong>——感受后腿<strong>大腿根部前侧</strong>（髋屈肌）的拉伸</li><li>拉伸到有牵拉感但不疼。保持<strong>30秒</strong>，深呼吸</li><li>每侧1分钟。一周4天训练→髋屈肌累积缩短→深蹲时腰容易代偿</li></ol></div><div class="mm">骨盆保持中立——不前倾不后倾。拉伸的是大腿根前侧，不是腰。</div>';
 case'低强度有氧':return'<div class="phase"><div class="phase-t">执行</div><ol><li>慢跑/骑车/快走——<strong>心率60-70%最大心率</strong></li><li>25-30分钟。标准：可以边做边正常说话（不喘）</li><li>目的是促进血液循环加速恢复——不是消耗热量。不要做成HIIT</li></ol></div><div class="mm">可以边做边聊天的强度。目的是恢复，不是减脂——心率不要太高。</div>';
-case'泡沫轴:上背+肩胛+臀':return'<div class="phase"><div class="phase-t">上背+肩胛（同胸椎泡沫轴）</div><ol><li>仰卧，泡沫轴横放上背——范围限于肩胛骨到胸腰交界——绝对不滚腰椎</li></ol></div><div class="phase"><div class="phase-t">臀部</div><ol><li>坐泡沫轴上，一侧脚踝搭对侧膝上——臀在泡沫轴上前后滚动。酸痛点停30秒</li></ol></div><div class="mm">上背只滚胸椎段。臀部分开滚——每侧重点不同。</div>';
+case'泡沫轴:上背+肩胛+臀':return'<div class="phase"><div class="phase-t">上背+肩胛（同胸椎泡沫轴）</div><ol><li>仰卧，泡沫轴横放上背——范围限于肩胛骨到胸腰交界——绝对不滚腰椎</li></ol></div><div class="phase"><div class="phase-t">臀部</div><ol><li>坐泡沫轴上，一侧脚踝搭对侧膝上——臀在泡沫轴上前后滚动。酸痛点停30���</li></ol></div><div class="mm">上背只滚胸椎段。臀部分开滚——每侧重点不同。</div>';
 case'真空吸腹':return'<div class="phase"><div class="phase-t">执行（晨起空腹·排泄后·吃饭前）</div><ol><li>站直，双脚与髋同宽。双手放髋骨上感受腹横肌。</li><li><strong>彻底呼气</strong>——肺里所有气呼干净。这是最关键的一步。</li><li>呼完后把<strong>肚脐向脊柱方向吸进去</strong>——想象肚脐要碰到后背。不是收腹（绷腹直肌），是<strong>真空吸</strong>。</li><li>保持<strong>15-20秒</strong>。小口浅呼吸，但腹部保持吸入状态。</li><li>放松，正常呼吸30秒。重复<strong>3-5组</strong>。</li></ol></div><div class="mm">不是"收腹"——收腹是绷紧腹直肌练六块。真空吸腹是训练腹横肌（最深层的腹部肌肉），像一条天然腰带，收紧后腰围视觉上小一圈。Arnold和Frank Zane每天做。</div><div class="err-sm"><div class="t">常见错误</div><li>肺里还有气就开始吸=腹横肌没被完全激活=白做。先呼干净。</li><li>收腹（绷腹直肌）而不是吸腹（向内拉）——两个不同动作。</li><li>耸肩或弓腰=代偿。站姿保持中立。</li></div>';
-default:return'';}}
+case'俯卧撑加(Push-up Plus)':return'<div class="phase"><div class="phase-t">执行</div><ol><li>俯卧撑位——手与肩同宽·身体一条直线</li><li>做一次标准俯卧撑</li><li>推到顶端后·<strong>手臂保持伸直·把上背往前推</strong>——肩胛骨前伸(protract)</li><li>感受前锯肌（腋窝后侧下方）收紧</li><li>回到中立位</li><li>重复15次</li></ol></div><div class="mm">不是做俯卧撑——是俯卧撑顶端的肩胛前伸。只有前锯肌能做这个动作。你的站姿OHP需要它——这也是为什么坐姿肩推练不到它。</div>';case'绳索侧平举(低位)':return'<div class="wt-r">滑轮贴地面·<strong>2.5-5kg</strong>。龙门架低位·单手D把·侧站</div><div class="phase"><div class="phase-t">1 设置</div><ol><li>滑轮调到最低·贴地面。装D型把手</li><li>侧站——右手做就站左边·手臂交叉过身体前方握住把手</li><li>身体微侧倾·核心收紧·肘微屈10-15度</li></ol></div><div class="phase"><div class="phase-t">2 抬起·向心(1-2秒)</div><ol><li>从身体前方向外上方抬起——小指高于拇指</li><li>抬到手臂与地面平行</li></ol></div><div class="phase"><div class="phase-t">3 下放·离心(3秒)</div><ol><li>3秒有控制回到起始——绳索全程拉紧·底部不停留·直接下一组</li></ol></div><div class="mm">滑轮最低=中束在最拉伸位张力最大。底部手臂交叉过身体=中束被动拉到最长。</div>';case'反向蝴蝶机':return'<div class="wt-r">首周从轻开始·<strong>20-30kg</strong>·找后束的挤压</div><div class="phase"><div class="phase-t">1 设置</div><ol><li>调整座椅高度——手臂在身体两侧打开时与肩平齐</li><li>握手柄·手臂微屈·肘固定。身体贴紧靠背</li></ol></div><div class="phase"><div class="phase-t">2 后展·向心</div><ol><li>手臂向后展开——<strong>不是划船·是后束驱动</strong>——手臂微屈角度不变</li><li>顶峰后束用力收紧。不是手臂拉——是后束向后展开</li></ol></div><div class="mm">慢速控制·后束孤立。面拉做功能保护·这个做肥大——两件不同的事。</div>';default:return'';}}
 
 function recSection(ptype){const items=REC[ptype];if(!items||!items.length)return'';let h='<div class="layer l4 collapsed"><div class="layer-t" onclick="this.parentElement.classList.toggle(&quot;collapsed&quot;)"><span>🧘</span>训练后恢复方案 · 点击动作展开细节</div>';items.forEach(i=>{h+='<div class="ex-r" onclick="this.classList.toggle(\'open\')"><div class="ex-r-sum"><span class="nm" style="min-width:auto">'+i.r+'</span><span class="m" style="margin-left:auto"><span class="sr">'+i.d+'</span></span></div><div class="ex-r-detail">'+recDetail(i.r)+'</div></div>'});h+='</div>';return h}
 function teaSection(ptype,dsKey){const t=TEA[ptype];if(!t)return'';let h='<div class="layer l5 collapsed"><div class="layer-t" onclick="this.parentElement.classList.toggle(&quot;collapsed&quot;)"><span>🍵</span>茶饮方案 v4</div>';h+='<div class="tea-formula">'+t.f+'</div>';h+='<div class="tea-special">'+t.s+'</div>';
