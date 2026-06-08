@@ -93,6 +93,44 @@ body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;backgr
 <script>
 // ═══════ PLAN ═══════
 	const PLAN={
+	推1:{day:'周一 · 推1 大重量',total:'23组 · ~60min',ex:[
+	{n:1,name:'杠铃深蹲',mus:'股四头肌',wt:'80-82.5kg',sr:'4×6-8',rest:'3.5min',rir:'RIR 2'},
+	{n:2,name:'腿举',mus:'股四头肌',wt:'60-80kg',sr:'3×10-12',rest:'2min',rir:'RIR 1-2'},
+	{n:3,name:'坐姿腿弯举',mus:'腘绳肌',wt:'35-45kg',sr:'3×10-12',rest:'1.5min',rir:'RIR 1'},
+	{n:4,name:'平板杠铃卧推',mus:'中胸',wt:'60-65kg',sr:'4×6-8',rest:'3min',rir:'RIR 2'},
+	{n:5,name:'上斜30°杠铃卧推',mus:'上胸',wt:'50-55kg',sr:'3×8-10',rest:'2.5min',rir:'RIR 1-2'},
+	{n:6,name:'站姿实力推',mus:'肩前/中束',wt:'40-45kg',sr:'3×6-8',rest:'2.5min',rir:'RIR 2'},
+	{n:7,name:'绳索面拉',mus:'肩后束+外旋肌',wt:'轻格',sr:'3×15',rest:'1min',rir:'RIR 0',star:'rd'}
+	]},
+	拉1:{day:'周二 · 拉1 大重量',total:'25组 · ~58min',ex:[
+	{n:1,name:'罗马尼亚硬拉 RDL',mus:'腘绳肌+臀',wt:'60-65kg',sr:'3×8-10',rest:'2.5min',rir:'RIR 2'},
+	{n:2,name:'宽握引体向上(助力机)',mus:'外背阔肌上部',wt:'助力4-5格',sr:'4×8-10',rest:'2.5min',rir:'RIR 1-2'},
+	{n:3,name:'T杆划船(约45°握把)',mus:'中背+大圆肌',wt:'35-45kg',sr:'4×8-10',rest:'2.5min',rir:'RIR 1-2'},
+	{n:4,name:'窄距反握高位下拉',mus:'大圆肌+背阔肌下部',wt:'40-45kg',sr:'3×10-12',rest:'2min',rir:'RIR 1'},
+	{n:5,name:'坐姿绳索划船(窄距V把)',mus:'中下背',wt:'40-50kg',sr:'3×10-12',rest:'2min',rir:'RIR 1'},
+	{n:6,name:'哑铃弯举',mus:'二头长头',wt:'8-10kg/手',sr:'3×10-12',rest:'1.5min',rir:'RIR 0-1'},
+	{n:7,name:'哑铃侧平举(轻)',mus:'肩中束',wt:'2-3kg/手',sr:'2×20',rest:'1min',rir:'RIR 0',star:'gl'},
+	{n:8,name:'绳索面拉',mus:'肩后束+外旋肌',wt:'轻格',sr:'3×15',rest:'1min',rir:'RIR 0',star:'rd'}
+	]},
+	推2:{day:'周四 · 推2 容量',total:'25组 · ~62min',ex:[
+	{n:1,name:'上斜30°哑铃卧推',mus:'上胸',wt:'18-20kg/手',sr:'4×10-12',rest:'2.5min',rir:'RIR 1'},
+	{n:2,name:'蝴蝶机夹胸',mus:'胸中缝',wt:'30-40kg',sr:'3×12-15',rest:'2min',rir:'RIR 0-1',star:'rd'},
+	{n:3,name:'平板哑铃卧推',mus:'中胸',wt:'18-20kg/手',sr:'3×10-12',rest:'2min',rir:'RIR 1'},
+	{n:4,name:'高位绳索夹胸',mus:'下胸',wt:'5-10kg/侧',sr:'3×12-15',rest:'2min',rir:'RIR 0-1',star:'gl'},
+	{n:5,name:'哑铃侧平举',mus:'肩中束',wt:'3-5kg/手',sr:'4×15-20',rest:'1min',rir:'RIR 0',star:'gl'},
+	{n:6,name:'绳索下压(正握)',mus:'三头外侧',wt:'20-25kg',sr:'3×12-15',rest:'1min',rir:'RIR 0-1'},
+	{n:7,name:'仰卧W杠臂屈伸',mus:'三头长头',wt:'15-20kg',sr:'2×12-15',rest:'1min',rir:'RIR 0-1'},
+	{n:8,name:'绳索面拉',mus:'肩后束',wt:'轻格',sr:'3×15',rest:'1min',rir:'RIR 0',star:'rd'}
+	]},
+	拉2:{day:'周五 · 拉2 容量',total:'23组 · ~55min',ex:[
+	{n:1,name:'宽握正握高位下拉',mus:'外背阔肌上部',wt:'45kg',sr:'4×10-12',rest:'2.5min',rir:'RIR 1'},
+	{n:2,name:'T杆划船(宽距正握)',mus:'外背阔肌下部+上背',wt:'30-40kg',sr:'4×10-12',rest:'2min',rir:'RIR 1'},
+	{n:3,name:'窄距对握坐姿绳索划船',mus:'中下背',wt:'40-50kg',sr:'3×10-12',rest:'2min',rir:'RIR 1'},
+	{n:4,name:'直臂绳索下拉',mus:'背阔肌下沿',wt:'20-30kg',sr:'3×12-15',rest:'1.5min',rir:'RIR 0-1'},
+	{n:5,name:'锤式弯举',mus:'肱肌+二头短头',wt:'8-10kg/手',sr:'3×10-12',rest:'1.5min',rir:'RIR 0-1'},
+	{n:6,name:'绳索面拉',mus:'肩后束+外旋肌',wt:'轻格',sr:'3×15',rest:'1min',rir:'RIR 0',star:'rd'},
+	{n:7,name:'死虫式',mus:'核心·抗旋转',wt:'自重/1-2kg',sr:'3×15/侧',rest:'40s',rir:'—'}
+	]},
 	上肢推:{day:'周一 · 上肢推 大重量',total:'22组 · ~60min',ex:[
 	{n:1,name:'平板杠铃卧推',mus:'中胸',wt:'65kg',sr:'4×6-8',rest:'3min',rir:'RIR 2'},
 	{n:2,name:'站姿实力推',mus:'肩前/中束+前锯肌',wt:'35-40kg',sr:'3×6-8',rest:'2.5min',rir:'RIR 2'},
@@ -145,8 +183,6 @@ body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;backgr
 	休日:{day:'周日 · 完全休息',total:'白开水·脾胃休息',ex:[]},
 	休:{day:'周三 · 休息日',total:'茶饮调理·脾胃养护',ex:[]}
 	};
-
-
 
 // ═══════ FULL EXERCISE DETAILS (calendar native CSS) ═══════
 function stripTags(s){return s.replace(/<[^>]*>/g,'').trim()}
