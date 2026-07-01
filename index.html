@@ -112,18 +112,26 @@ a{color:var(--pp);text-decoration:none}
 /* ═══════ MOBILE ═══════ */
 @media(max-width:768px){
   .app{display:block;max-width:100%}
-  .sidebar{width:100%;flex-shrink:unset;border-right:none;border-bottom:1px solid var(--b);padding:8px;gap:6px;position:sticky;top:0;z-index:10}
-  .main{max-height:none;padding:8px}
-  .cal-grid .cell{min-height:28px;font-size:.7rem;padding:5px 2px}
-  .ex-sum{font-size:.68rem;padding:5px 8px}
-  .ex-sum .ex-n{width:16px;height:16px;line-height:16px;font-size:.55rem}
-  .ex-sum .ex-name{font-size:.68rem}
+  .sidebar{width:100%;max-height:none;overflow:visible;border-right:none;border-bottom:2px solid var(--b);padding:8px 10px;gap:4px;position:static}
+  .main{max-height:none;padding:8px 4px;width:100%}
+  .app-title{padding:6px 10px;font-size:.9rem}
+  .cal-nav button{font-size:.8rem;padding:2px 6px}
+  .cal-nav .month-label{font-size:.8rem}
+  .cal-dow{font-size:.55rem}
+  .cal-grid .cell{padding:5px 1px;min-height:26px;font-size:.68rem}
+  .cal-grid .cell .tag{font-size:.45rem}
+  .ex-row .ex-sum{font-size:.68rem;padding:5px 8px}
+  .ex-sum .ex-n{width:16px;height:16px;line-height:16px;font-size:.55rem;margin-right:4px}
+  .ex-sum .ex-name{font-size:.65rem;margin-right:4px}
   .ex-sum .ex-tag{font-size:.55rem;padding:1px 3px;margin-right:2px}
-  .ov-header{padding:10px 12px}
-  .ov-header .title{font-size:.85rem}
-  .layer-h{padding:8px 12px;font-size:.73rem}
-  .layer-b{padding:6px 12px 10px;font-size:.7rem}
+  .ov-header{padding:8px 10px;border-radius:0}
+  .ov-header .title{font-size:.82rem}
+  .ov-header .sub{font-size:.65rem}
+  .ov-body{border-radius:0}
+  .layer-h{padding:7px 10px;font-size:.7rem}
+  .layer-b{padding:6px 10px 10px;font-size:.68rem}
   .log-summary{grid-template-columns:1fr}
+  .meal-row{font-size:.68rem}
 }
 </style>
 </head>
@@ -137,7 +145,7 @@ a{color:var(--pp);text-decoration:none}
     <a href="../皮肤方案/护肤追踪.html" target="_blank">🧴 护肤追踪</a>
     &nbsp;·&nbsp;
     <span id="todayLabel"></span>
-    <br><span style="color:#50a060">v2026.07.01-nowrap</span>
+    <br><span style="color:#50a060">v2026.07.01-mob</span>
   </div>
 </aside>
 
