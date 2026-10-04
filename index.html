@@ -476,7 +476,7 @@ var _ls = (typeof localStorage !== 'undefined' && localStorage) ? localStorage :
   removeItem: function (k) { delete _mem[k]; }
 };
 
-function emptyStore() { return { version: 1, sessions: {}, measures: {}, tcm: {} }; }
+function emptyStore() { return { version: 1, sessions: {}, measures: {}, tcm: {}, adj: {} }; }
 
 function loadStore() {
   var o = null;
@@ -485,6 +485,7 @@ function loadStore() {
   if (!o.sessions || typeof o.sessions !== 'object') o.sessions = {};
   if (!o.measures || typeof o.measures !== 'object') o.measures = {};
   if (!o.tcm || typeof o.tcm !== 'object') o.tcm = {};
+  if (!o.adj || typeof o.adj !== 'object') o.adj = {};
   o.version = 1;
   return o;
 }
@@ -503,6 +504,12 @@ function saveStore() {
 
 /** 某天是否有记录（新录入或历史存档） */
 function isDeleted(v) { return !!(v && v.deletedAt); }
+
+/** 单日调整：优先取本地（含云端同步来的），回落到源码里的历史存档 */
+function getAdj(dsKey) { var v = store.adj[dsKey]; return v || ADJ[dsKey] || null; }
+
+/** 舌诊：同上 */
+function getTcm(dsKey) { var v = store.tcm[dsKey]; return v || TCM_LOG[dsKey] || null; }
 
 function hasLog(dsKey) { return !!(getSession(dsKey) || LOGS[dsKey]); }
 
@@ -694,7 +701,7 @@ async function ensureFreshToken() {
 /** 把本地 store 摊平成服务端的行格式 */
 function localRecords() {
   var out = [];
-  var groups = [['session', store.sessions], ['measure', store.measures], ['tcm', store.tcm]];
+  var groups = [['session', store.sessions], ['measure', store.measures], ['tcm', store.tcm], ['adj', store.adj]];
   groups.forEach(function (g) {
     var kind = g[0], obj = g[1] || {};
     Object.keys(obj).forEach(function (date) {
@@ -717,6 +724,7 @@ function applyRemote(rows) {
     var bucket = row.kind === 'session' ? store.sessions
                : row.kind === 'measure' ? store.measures
                : row.kind === 'tcm'     ? store.tcm
+               : row.kind === 'adj'     ? store.adj
                : null;
     if (!bucket) return;
     var local = bucket[row.date];
@@ -802,6 +810,51 @@ async function syncNow(opts) {
     return { ok: false, reason: 'error', message: msg };
   }
 }
+
+/* ── 一次性迁移：把源码里的历史存档搬进可同步的本地库 ──────────
+ * 关键：**照搬，不改写**。
+ *   LOGS 的汇总格式（actual:[{n, wt:'80kg', rep:'8·7·8'}]）原样存进 store，
+ *   因为 sessionEntries() 已经能解析新旧两种形态，改写成逐组反而是有损的
+ *   （'助力9格' / '10→15kg/侧' 这类没法无损转成数字）。
+ *
+ * 迁移后这些数据就和其他记录一样会被推到云端，源码里的存档成为冗余。
+ */
+function migrateLegacy() {
+  var FLAG = 'zx.migrated.v1';
+  try { if (_syncLs.getItem(FLAG)) return 0; } catch (e) { /* 忽略 */ }
+  var n = 0, now = new Date().toISOString();
+
+  Object.keys(LOGS || {}).forEach(function (d) {
+    if (store.sessions[d]) return;
+    var L = LOGS[d], copy = {};
+    Object.keys(L).forEach(function (k) { copy[k] = L[k]; });
+    copy.updatedAt = now;
+    store.sessions[d] = copy;
+    markDirty('session', d); n++;
+  });
+
+  Object.keys(TCM_LOG || {}).forEach(function (d) {
+    if (store.tcm[d]) return;
+    var t = TCM_LOG[d], copy = {};
+    Object.keys(t).forEach(function (k) { copy[k] = t[k]; });
+    copy.updatedAt = now;
+    store.tcm[d] = copy;
+    markDirty('tcm', d); n++;
+  });
+
+  Object.keys(ADJ || {}).forEach(function (d) {
+    if (store.adj[d]) return;
+    var a = ADJ[d];
+    store.adj[d] = { notes: (a.notes || []).slice(), updatedAt: now };
+    markDirty('adj', d); n++;
+  });
+
+  if (n) saveStore();
+  try { _syncLs.setItem(FLAG, '1'); } catch (e) { /* 忽略 */ }
+  return n;
+}
+
+var legacyMigrated = migrateLegacy();
 
 authRestore();
 if (!isLoggedIn()) syncStatus = 'noauth';
@@ -889,7 +942,7 @@ function openDay(dsKey){
 
 function showPlan(dsKey,ptype){
   const P=PLAN[ptype];if(!P)return;
-  const adj=ADJ[dsKey];
+  const adj=getAdj(dsKey);
   let h=ovHeader(dsKey,P.day+' · '+P.total,adj?'已叠加调整':'');
   h+='<div class="ov-body">';
   h+=recButton(dsKey,ptype);
@@ -910,7 +963,7 @@ function showPlan(dsKey,ptype){
 }
 
 function tcmSection(dsKey){
-  const tl=TCM_LOG[dsKey];if(!tl)return'';
+  const tl=getTcm(dsKey);if(!tl)return'';
   let h='<div class="layer"><div class="layer-h" onclick="toggleLayer(this)"><span class="icon">👅</span>今日舌诊与体质追踪<span class="arrow">▼</span></div><div class="layer-b">';
   h+='<div class="tcm-card">';
   if(tl.tongue)h+='<div class="tcm-row"><span class="tcm-k">👅 舌象</span> <span class="tcm-v">'+tl.tongue+'</span></div>';
@@ -938,14 +991,15 @@ function showRestDay(dsKey,ptype){
 /* 分派：新录入的记录走 showNewLog（逐组、可编辑）；
    历史存档（2026-05~06 的汇总格式）走 showLegacyLog（只读）。 */
 function showLog(dsKey,ptype){
-  if(store.sessions[dsKey]){showNewLog(dsKey,ptype);return;}
-  showLegacyLog(dsKey,ptype);
+  var S=store.sessions[dsKey];
+  if(S && S.entries){showNewLog(dsKey,ptype);return;}
+  if(S || LOGS[dsKey]){showLegacyLog(dsKey,ptype);return;}
 }
 
 function showLegacyLog(dsKey,ptype){
-  const L=LOGS[dsKey];if(!L)return;
+  const L=store.sessions[dsKey]||LOGS[dsKey];if(!L)return;
   const P=PLAN[L.planType];
-  const adj=ADJ[L.summary.next];
+  const adj=getAdj(L.summary.next);
   const sm=L.summary||{};
   let h=ovHeader(dsKey,'📝 训练实录 · '+L.planType,sm.done||'');
   h+='<div class="ov-body">';
@@ -975,7 +1029,7 @@ function showLegacyLog(dsKey,ptype){
   h+='<div style="font-size:.62em;color:var(--d);padding:0 16px 4px">📦 这是历史存档（汇总格式，只读）</div>';
   h+='</div></div>';
   h+=adjLayer('针对本次训练的调整（下次生效）',adj);
-  h+=adjLayer('当日调整提醒',ADJ[dsKey]);
+  h+=adjLayer('当日调整提醒',getAdj(dsKey));
   h+=tcmSection(dsKey);
   h+=teaSection(L.planType,dsKey);
   h+=recSection(L.planType);
@@ -1007,7 +1061,7 @@ function adjLayer(title,adj){
 // ── SECTIONS ──
 function teaSection(ptype,dsKey){
   const t=TEA[ptype];if(!t)return'';
-  const tl=TCM_LOG[dsKey];
+  const tl=getTcm(dsKey);
   let h='<div class="layer"><div class="layer-h" onclick="toggleLayer(this)"><span class="icon">🍵</span>茶饮调理<span class="arrow">▼</span></div><div class="layer-b">';
   h+='<div class="tea-base">'+t.f+'</div>';
   if(tl)h+='<div class="tea-adj">⚡ 今日调整：'+tl.tea_extra+'</div>';
@@ -1126,7 +1180,7 @@ function showRec(dsKey){
 function recRender(dsKey){
   var S=store.sessions[dsKey];if(!S)return;
   var P=PLAN[S.planType];
-  var adj=ADJ[dsKey];
+  var adj=getAdj(dsKey);
   var h='<div class="ov-header"><div><div class="title">📝 记录训练</div>'
     +'<div class="sub">'+dsKey+' · '+S.planType+'</div></div>'
     +'<button class="close-btn" onclick="closeView()">✕</button></div>';
@@ -1234,7 +1288,7 @@ function recDelete(dsKey){
 /** 新格式记录（逐组）的展示 */
 function showNewLog(dsKey,ptype){
   var S=store.sessions[dsKey];if(!S)return;
-  var adj=ADJ[dsKey];
+  var adj=getAdj(dsKey);
   var h=ovHeader(dsKey,'📝 训练实录 · '+S.planType,(S.summary&&S.summary.done)||'');
   h+='<div class="ov-body">';
   h+=recButton(dsKey,S.planType);
@@ -1412,6 +1466,7 @@ async function doSignOut(){
 
 /** 启动时自动同步一次；回到前台/恢复联网也同步 */
 function syncBootstrap(){
+  if(legacyMigrated)console.log('已迁移 '+legacyMigrated+' 条历史数据到本地库，登录后会自动上传');
   if(!isLoggedIn())return;
   setTimeout(function(){syncNow();},1500);
   if(typeof window!=='undefined'&&window.addEventListener){
