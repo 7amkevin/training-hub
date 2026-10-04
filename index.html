@@ -291,6 +291,38 @@ a{color:var(--pp);text-decoration:none}
 .mea-tkey td{color:var(--gl) !important;font-weight:600}
 .up{color:var(--gn)}
 .down{color:var(--rd)}
+
+
+/* ═══════ 训练量趋势（FR-11）═══════ */
+.tr-list{padding:0 12px}
+.tr-row{display:flex;align-items:center;gap:8px;padding:10px 10px;border:1px solid var(--b);border-radius:8px;margin-bottom:6px;background:var(--c1);cursor:pointer}
+.tr-row:active{background:var(--c2)}
+.tr-main{flex:1 1 auto;min-width:0}
+.tr-main b{display:block;font-size:.8rem;color:var(--t);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tr-main span{display:block;font-size:.58rem;color:var(--d);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tr-mini{flex:0 0 40px;height:22px;display:flex;align-items:flex-end;gap:2px}
+.tr-mini i{flex:1 1 0;background:var(--b);border-radius:1px;min-height:2px}
+.tr-num{flex:0 0 auto;text-align:right;line-height:1.1}
+.tr-num b{font-size:.74rem;color:var(--t)}
+.tr-num span{display:block;font-size:.52rem;color:var(--d)}
+.tr-trend{flex:0 0 52px;text-align:right;font-size:.66rem;font-weight:600;color:var(--d)}
+.tr-trend.up{color:var(--gn)}
+.tr-trend.down{color:var(--rd)}
+.tr-week{padding:16px 12px 0}
+.tr-wh{font-size:.62rem;color:var(--gl);letter-spacing:.08em;padding:0 2px 8px;border-bottom:1px solid var(--b);margin-bottom:8px}
+.tr-wrow{display:flex;align-items:center;gap:8px;padding:4px 0}
+.tr-wk{flex:0 0 42px;font-size:.62rem;color:var(--d)}
+.tr-wv{flex:0 0 62px;text-align:right;font-size:.68rem;color:var(--t);font-variant-numeric:tabular-nums}
+.tr-wd{flex:0 0 46px;text-align:right;font-size:.62rem}
+.tr-bar{flex:1 1 auto;height:8px;border-radius:4px;background:#14151a;overflow:hidden;display:block}
+.tr-bar i{display:block;height:100%;background:var(--d);border-radius:4px}
+.tr-bar.up i{background:var(--gn)}
+.tr-bar.down i{background:var(--rd)}
+.tr-detail{padding:8px 12px 0}
+.tr-drow{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #14151a}
+.tr-dd{flex:0 0 42px;font-size:.62rem;color:var(--d)}
+.tr-dv{flex:0 0 68px;text-align:right;font-size:.68rem;color:var(--t);font-variant-numeric:tabular-nums}
+.tr-ds{flex:0 0 74px;text-align:right;font-size:.58rem;color:var(--d);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 </style>
 </head>
 <body>
@@ -1749,6 +1781,235 @@ function showMeasureTrend() {
 }
 
 /* ══════════════════════════════════════════════════════════════════
+ * 训练中枢 · 训练量趋势（FR-11）
+ * ------------------------------------------------------------------
+ * 回答一个具体问题：**我到底有没有在进步？**
+ *
+ * 用什么衡量：总容量 = Σ(重量 × 次数)
+ *   这是渐进超负荷最直接的量化指标 —— 重量涨了、次数涨了、组数涨了，
+ *   都会体现在这一个数字上。
+ *
+ * 三个计算约定：
+ *   1. 热身组（t='w'）不计入 —— 否则「总容量」会被热身污染，
+ *      看着在涨但其实只是热身做多了
+ *   2. 历史汇总格式（'80kg' / '8·7·8'）会被解析后一并计入 ——
+ *      否则迁移过来的旧数据在趋势里是空白
+ *   3. 判定「进步/退步」的阈值是 ±2% —— 低于这个幅度是测量噪音不是趋势
+ * ══════════════════════════════════════════════════════════════════ */
+
+/** 单个动作在某次训练里的容量 */
+function entryVolume(e) {
+  var vol = 0, sets = 0, ws = [];
+  if (!e) return { vol: 0, sets: 0, topW: null };
+  if (e.sets && e.sets.length) {
+    e.sets.forEach(function (x) {
+      if (x.t === 'w') return;                       // 热身不计
+      if (x.w != null && x.r != null) { vol += x.w * x.r; sets++; ws.push(x.w); }
+    });
+  } else if (e.legacy || e.rawW) {
+    var p = parseLegacySet({ wt: e.rawW || '', rep: e.rawR || '' });
+    p.reps.forEach(function (r) { if (r > 0) { vol += p.w * r; sets++; } });
+    if (p.w > 0) ws.push(p.w);
+  }
+  return { vol: Math.round(vol), sets: sets, topW: ws.length ? Math.max.apply(null, ws) : null };
+}
+
+/** 整次训练的容量 */
+function sessionVolume(S) {
+  if (!S) return { vol: 0, sets: 0 };
+  var vol = 0, sets = 0;
+  sessionEntries(S).forEach(function (e) {
+    var v = entryVolume(e);
+    vol += v.vol; sets += v.sets;
+  });
+  return { vol: vol, sets: sets };
+}
+
+/** 某动作的全部历史（按日期升序） */
+function exerciseHistory(name) {
+  var all = allSessions();
+  var out = [];
+  Object.keys(all).sort().forEach(function (d) {
+    var S = all[d];
+    if (!S) return;
+    var ents = sessionEntries(S);
+    for (var i = 0; i < ents.length; i++) {
+      if (ents[i].name !== name) continue;
+      var v = entryVolume(ents[i]);
+      if (v.vol > 0) out.push({ date: d, vol: v.vol, sets: v.sets, topW: v.topW, planType: S.planType });
+      break;
+    }
+  });
+  return out;
+}
+
+/** 某日期所在周的周一（用于按周聚合） */
+function weekStart(dsKey) {
+  var d = new Date(dsKey + 'T12:00:00');
+  var dow = d.getDay();                 // 0=周日
+  var back = (dow === 0 ? 6 : dow - 1); // 回退到周一
+  d.setDate(d.getDate() - back);
+  return ds(d);
+}
+
+/** 按周聚合的总容量 */
+function weeklyVolume() {
+  var all = allSessions();
+  var byWeek = {};
+  Object.keys(all).sort().forEach(function (d) {
+    var S = all[d];
+    if (!S) return;
+    var v = sessionVolume(S);
+    if (!v.vol) return;
+    var w = weekStart(d);
+    if (!byWeek[w]) byWeek[w] = { vol: 0, sets: 0, days: 0 };
+    byWeek[w].vol += v.vol; byWeek[w].sets += v.sets; byWeek[w].days++;
+  });
+  return byWeek;
+}
+
+/** 趋势判定：最近一次 vs 上一次，±2% 以内算持平 */
+function trendOf(hist) {
+  if (!hist || hist.length < 2) return { dir: 'none', pct: null };
+  var last = hist[hist.length - 1].vol, prev = hist[hist.length - 2].vol;
+  if (!prev) return { dir: 'none', pct: null };
+  var pct = Math.round((last - prev) / prev * 1000) / 10;
+  if (pct > 2) return { dir: 'up', pct: pct };
+  if (pct < -2) return { dir: 'down', pct: pct };
+  return { dir: 'flat', pct: pct };
+}
+
+/* ── 视图 ─────────────────────────────────────────────────────── */
+
+/** 所有做过的动作，按「最近一次容量」降序 */
+function allExercises() {
+  var seen = {}, list = [];
+  var all = allSessions();
+  Object.keys(all).sort().forEach(function (d) {
+    sessionEntries(all[d]).forEach(function (e) {
+      if (!e.name || seen[e.name]) return;
+      var v = entryVolume(e);
+      if (v.vol > 0) { seen[e.name] = 1; list.push(e.name); }
+    });
+  });
+  return list;
+}
+
+function bar(pct, cls) {
+  var w = Math.max(3, Math.min(100, Math.round(pct)));
+  return '<span class="tr-bar ' + (cls || '') + '"><i style="width:' + w + '%"></i></span>';
+}
+
+function showVolumeTrend() {
+  var names = allExercises();
+  var rows = names.map(function (n) {
+    var h = exerciseHistory(n);
+    return { name: n, hist: h, trend: trendOf(h), last: h[h.length - 1] };
+  }).filter(function (x) { return x.last; });
+
+  // 排序：有进步的在前，退步的在后
+  var order = { up: 0, flat: 1, none: 2, down: 3 };
+  rows.sort(function (a, b) {
+    var d = (order[a.trend.dir] || 9) - (order[b.trend.dir] || 9);
+    if (d) return d;
+    return (b.trend.pct || 0) - (a.trend.pct || 0);
+  });
+
+  var h = '<div class="ov-header"><div><div class="title">📊 训练量趋势</div>'
+    + '<div class="sub">共 ' + rows.length + ' 个动作 · 按进步幅度排序</div></div>'
+    + '<button class="close-btn" onclick="closeView()">✕</button></div>';
+  h += '<div class="ov-body">';
+
+  if (!rows.length) {
+    h += '<div class="tea-note" style="padding:14px 16px">还没有可分析的训练数据。'
+      + '<br>至少记录两次同一个动作，这里才会显示趋势。</div>';
+  } else {
+    h += '<div class="tr-list">';
+    rows.forEach(function (x) {
+      var dir = x.trend.dir;
+      var arrow = dir === 'up' ? '↑' : dir === 'down' ? '↓' : dir === 'flat' ? '→' : '·';
+      var pctTxt = x.trend.pct == null ? '一次记录' : (x.trend.pct > 0 ? '+' : '') + x.trend.pct + '%';
+      var maxVol = Math.max.apply(null, x.hist.map(function (y) { return y.vol; }));
+      // 迷你走势：最近 6 次
+      var mini = x.hist.slice(-6).map(function (y) {
+        return '<i style="height:' + Math.max(10, Math.round(y.vol / maxVol * 100)) + '%"></i>';
+      }).join('');
+      h += '<div class="tr-row" onclick="showExerciseDetail(\'' + x.name.replace(/'/g, "\\'") + '\')">'
+        + '<div class="tr-main"><b>' + x.name + '</b>'
+        + '<span>' + x.last.date + ' · ' + x.last.sets + ' 组 · 最重 ' + (x.last.topW != null ? x.last.topW + 'kg' : '—') + '</span></div>'
+        + '<div class="tr-mini">' + mini + '</div>'
+        + '<div class="tr-num"><b>' + x.last.vol.toLocaleString() + '</b><span>kg</span></div>'
+        + '<div class="tr-trend ' + dir + '">' + arrow + ' ' + pctTxt + '</div>'
+        + '</div>';
+    });
+    h += '</div>';
+  }
+
+  // 按周总容量
+  var wk = weeklyVolume();
+  var wks = Object.keys(wk).sort();
+  if (wks.length) {
+    var recent = wks.slice(-8);
+    var maxW = Math.max.apply(null, recent.map(function (k) { return wk[k].vol; }));
+    h += '<div class="tr-week"><div class="tr-wh">按周总容量</div>';
+    recent.forEach(function (k, i) {
+      var prev = i > 0 ? wk[recent[i - 1]].vol : null;
+      var d = prev ? Math.round((wk[k].vol - prev) / prev * 1000) / 10 : null;
+      h += '<div class="tr-wrow">'
+        + '<span class="tr-wk">' + k.slice(5) + '</span>'
+        + bar(wk[k].vol / maxW * 100, d > 0 ? 'up' : d < 0 ? 'down' : '')
+        + '<span class="tr-wv">' + wk[k].vol.toLocaleString() + '</span>'
+        + '<span class="tr-wd ' + (d > 0 ? 'up' : d < 0 ? 'down' : '') + '">'
+        + (d == null ? '—' : (d > 0 ? '+' : '') + d + '%') + '</span>'
+        + '</div>';
+    });
+    h += '</div>';
+  }
+
+  h += '<div class="mea-note">容量 = Σ(重量 × 次数)，<b>热身组不计入</b>。<br>'
+    + '同动作连续两次涨跌 ±2% 以内算持平 —— 低于这个幅度是测量噪音，不是趋势。<br>'
+    + '⚠️ 单次波动很正常，看的是<b>连续三到四次的走向</b>。</div>';
+  h += '<div class="rec-foot"><button class="btn-rec" onclick="closeView()">关闭</button></div>';
+  h += '</div>';
+  renderMain(h);
+}
+
+function showExerciseDetail(name) {
+  var hist = exerciseHistory(name);
+  var h = '<div class="ov-header"><div><div class="title">' + name + '</div>'
+    + '<div class="sub">' + hist.length + ' 次记录 · 总容量趋势</div></div>'
+    + '<button class="close-btn" onclick="showVolumeTrend()">✕</button></div>';
+  h += '<div class="ov-body">';
+  if (!hist.length) { h += '<div class="tea-note" style="padding:14px 16px">没有记录</div>'; }
+  else {
+    var maxV = Math.max.apply(null, hist.map(function (x) { return x.vol; }));
+    h += '<div class="tr-detail">';
+    hist.slice().reverse().forEach(function (x, i, arr) {
+      var prev = arr[i + 1];
+      var d = prev ? Math.round((x.vol - prev.vol) / prev.vol * 1000) / 10 : null;
+      h += '<div class="tr-drow">'
+        + '<span class="tr-dd">' + x.date.slice(5) + '</span>'
+        + bar(x.vol / maxV * 100, d > 0 ? 'up' : d < 0 ? 'down' : '')
+        + '<span class="tr-dv">' + x.vol.toLocaleString() + ' kg</span>'
+        + '<span class="tr-ds">' + x.sets + '组' + (x.topW != null ? ' · ' + x.topW + 'kg' : '') + '</span>'
+        + '<span class="tr-wd ' + (d > 0 ? 'up' : d < 0 ? 'down' : '') + '">'
+        + (d == null ? '' : (d > 0 ? '+' : '') + d + '%') + '</span>'
+        + '</div>';
+    });
+    h += '</div>';
+    var first = hist[0], last = hist[hist.length - 1];
+    var total = first.vol ? Math.round((last.vol - first.vol) / first.vol * 1000) / 10 : null;
+    h += '<div class="mea-ratios"><div class="mea-rrow"><span>首次</span><b>' + first.vol.toLocaleString() + '</b><em>' + first.date + '</em></div>'
+      + '<div class="mea-rrow"><span>最近</span><b>' + last.vol.toLocaleString() + '</b><em>' + last.date + '</em></div>'
+      + '<div class="mea-rrow"><span>累计变化</span><b>' + (total == null ? '—' : (total > 0 ? '+' : '') + total + '%') + '</b><em>'
+      + (total > 0 ? '进步' : total < 0 ? '退步' : '') + '</em></div></div>';
+  }
+  h += '<div class="rec-foot"><button class="btn-rec" onclick="showVolumeTrend()">← 返回列表</button></div>';
+  h += '</div>';
+  renderMain(h);
+}
+
+/* ══════════════════════════════════════════════════════════════════
  * 训练中枢 · 渲染逻辑
  * ------------------------------------------------------------------
  * 数据结构见 data.public.js 与 data.private.js。
@@ -1813,7 +2074,7 @@ function renderCalendar(){
   }
   h+='</div>';
   h+='<div class="cal-tools"><button class="btn-xs" onclick="showMeasure()">📏 围度</button>'
-    +'<button class="btn-xs" onclick="showMeasureTrend()">📈 趋势</button>'
+    +'<button class="btn-xs" onclick="showVolumeTrend()">📊 训练量</button>'
     +'<button class="btn-xs" id="syncBtn" onclick="showAccount()">'+syncLabel()+'</button></div>';
   h+='<div class="cal-tools"><button class="btn-xs" onclick="exportData()">⬇ 导出</button>'
     +'<button class="btn-xs" onclick="document.getElementById(\'importFile\').click()">⬆ 导入</button>'
