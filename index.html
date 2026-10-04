@@ -228,6 +228,23 @@ a{color:var(--pp);text-decoration:none}
 .wo-timer-btns{display:flex;gap:8px;justify-content:center}
 .wo-timer-btns button{flex:1 1 0;font:inherit;font-size:.76rem;padding:10px 4px;border-radius:8px;border:1px solid var(--b);background:var(--c2);color:var(--t);cursor:pointer}
 .wo-timer-btns button:active{background:var(--b)}
+
+
+/* ═══════ 训练模式补充：热身组 / 计时结束提示 / 试听 ═══════ */
+.wo-sndmsg{min-height:1em;padding:0 16px 2px;font-size:.62rem;color:var(--gn)}
+.wo-sndmsg:empty{display:none}
+.wo-set.warm{background:rgba(200,150,64,.05);border-radius:6px;margin:2px 0;padding:4px 6px}
+.wo-set.warm .wo-si{color:var(--gl);border-color:var(--gl)}
+.wo-set.warm .rec-in{border-style:dashed}
+.wo-addrow{display:flex;gap:6px;margin-top:6px}
+.wo-addrow .rec-add{margin-top:0}
+.wo-hint{font-size:.58rem;color:var(--d);text-align:center;padding:8px 4px 0;line-height:1.5}
+
+/* 休息结束的视觉兜底（iPhone 没有震动，声音可能被静音） */
+.wo-alert{position:fixed;inset:0;z-index:300;display:flex;align-items:center;justify-content:center;background:rgba(10,30,14,.88);backdrop-filter:blur(2px);animation:woflash .5s ease-out}
+@keyframes woflash{from{opacity:0}to{opacity:1}}
+.wo-alert-in{text-align:center;font-size:2rem;font-weight:700;color:var(--gn);line-height:1.5}
+.wo-alert-in span{display:block;font-size:.85rem;font-weight:400;color:var(--t);margin-top:8px}
 </style>
 </head>
 <body>
@@ -945,27 +962,60 @@ function woFmt(sec) {
   return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
 }
 
-/* ── 提示音 + 震动（都不依赖外部文件）── */
-function woBeep(times) {
-  times = times || 1;
+/* ── 提示音 + 震动 ──────────────────────────────────────────────
+ * iOS 的两个限制必须绕开：
+ *   1. AudioContext 不允许在「非用户手势」的上下文里启动 ——
+ *      如果等到计时结束（几分钟后）才 new，iOS 会把它挂在 suspended，一声不出。
+ *      所以要在用户点「开始训练」或「完成」的那一刻就解锁，之后复用同一个上下文。
+ *   2. navigator.vibrate 在 iOS 上不存在（Safari 从未支持），震动只能用于安卓。
+ *      所以 iPhone 上「休息结束」的反馈完全依赖声音 + 视觉闪烁。
+ */
+var _woAudio = null;
+
+/** 必须在用户手势（onclick）里调用 */
+function woAudioUnlock() {
   try {
     var AC = (typeof window !== 'undefined') && (window.AudioContext || window.webkitAudioContext);
-    if (!AC) return;
-    var ctx = new AC();
-    for (var i = 0; i < times; i++) {
-      var t0 = ctx.currentTime + i * 0.28;
-      var o = ctx.createOscillator(), g = ctx.createGain();
-      o.connect(g); g.connect(ctx.destination);
-      o.frequency.value = 880;
-      o.type = 'sine';
-      g.gain.setValueAtTime(0.0001, t0);
-      g.gain.exponentialRampToValueAtTime(0.35, t0 + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.22);
-      o.start(t0); o.stop(t0 + 0.25);
-    }
-    setTimeout(function () { try { ctx.close(); } catch (e) {} }, 400 + times * 300);
-  } catch (e) { /* 忽略 */ }
-  try { if (navigator.vibrate) navigator.vibrate([220, 90, 220, 90, 220]); } catch (e) {}
+    if (!AC) return null;
+    if (!_woAudio) _woAudio = new AC();
+    if (_woAudio.state === 'suspended' && _woAudio.resume) _woAudio.resume();
+    // 播一个听不见的极短音，把上下文彻底激活
+    var o = _woAudio.createOscillator(), g = _woAudio.createGain();
+    g.gain.value = 0.0001;
+    o.connect(g); g.connect(_woAudio.destination);
+    o.start(); o.stop(_woAudio.currentTime + 0.02);
+    return _woAudio;
+  } catch (e) { return null; }
+}
+
+function woBeep(times) {
+  times = times || 1;
+  var ctx = _woAudio || woAudioUnlock();
+  if (ctx) {
+    try {
+      if (ctx.state === 'suspended' && ctx.resume) ctx.resume();
+      for (var i = 0; i < times; i++) {
+        var t0 = ctx.currentTime + i * 0.3;
+        var o = ctx.createOscillator(), g = ctx.createGain();
+        o.connect(g); g.connect(ctx.destination);
+        o.type = 'sine';
+        o.frequency.setValueAtTime(880, t0);
+        g.gain.setValueAtTime(0.0001, t0);
+        g.gain.exponentialRampToValueAtTime(0.5, t0 + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.28);
+        o.start(t0); o.stop(t0 + 0.3);
+      }
+    } catch (e) { /* 忽略 */ }
+  }
+  try { if (navigator.vibrate) navigator.vibrate([240, 100, 240, 100, 240]); } catch (e) { /* iOS 无此 API */ }
+}
+
+/** 手动试听 —— 让你在训练前确认声音真的会响 */
+function woTestSound() {
+  woAudioUnlock();
+  woBeep(1);
+  var el = document.getElementById('woSoundMsg');
+  if (el) el.textContent = '已播放 —— 没听到就是手机静音了';
 }
 
 /* ── Wake Lock：训练期间屏幕别黑 ── */
@@ -993,6 +1043,7 @@ function startWorkout(dsKey) {
     if (done < (S.entries[i].sets || []).length) { woCur = i; break; }
   }
   woWakeOn();
+  woAudioUnlock();          // ← 必须在用户点击的这一刻解锁，否则 iOS 计时结束时不会响
   renderWorkout(dsKey);
 }
 
@@ -1041,6 +1092,7 @@ function woTimerPaint() {
   if (left <= 0) {
     woBeep(3);
     woTimerStop();
+    woAlert();
     return;
   }
   if (!el) {
@@ -1061,10 +1113,28 @@ function woTimerPaint() {
     + '</div></div>';
 }
 
+/** 计时结束的视觉兜底 —— iPhone 没有震动，声音又可能被静音，所以必须看得见 */
+function woAlert() {
+  var el = document.getElementById('woAlert');
+  if (!el && typeof document !== 'undefined' && document.createElement) {
+    el = document.createElement('div');
+    el.id = 'woAlert';
+    el.className = 'wo-alert';
+    if (document.body) document.body.appendChild(el);
+  }
+  if (!el) return;
+  el.innerHTML = '<div class="wo-alert-in">✅ 休息结束<span>该下一组了</span></div>';
+  if (el.remove) setTimeout(function () {
+    var e2 = document.getElementById('woAlert');
+    if (e2 && e2.remove) e2.remove();
+  }, 2600);
+}
+
 /* ── 组的操作 ── */
 function woCompleteSet(ei, si) {
   var S = store.sessions[woKey]; if (!S) return;
   var e = S.entries[ei]; if (!e || !e.sets[si]) return;
+  woAudioUnlock();          // ← 每次点击都顺手解锁一次（iOS 的上下文可能被回收）
   var st = e.sets[si];
   if (st.w == null || st.r == null) {
     // 没填完就先聚焦到那个输入框，别让人困惑
@@ -1111,6 +1181,20 @@ function woInput(ei, si, field, val) {
   e.sets[si][field] = (val === '' || !isFinite(n)) ? null : (field === 'r' ? Math.round(n) : n);
   touchSession(woKey);
 }
+/** 在最前面插入一组热身 —— 比「点组号切换」好发现得多 */
+function woAddWarmup(ei) {
+  var S = store.sessions[woKey]; if (!S) return;
+  var e = S.entries[ei]; if (!e) return;
+  var w = null;
+  for (var i = 0; i < e.sets.length; i++) {
+    if (e.sets[i].t !== 'w' && e.sets[i].w != null) { w = e.sets[i].w; break; }
+  }
+  var warmW = w ? Math.round(w * 0.6 / 2.5) * 2.5 : null;   // 约 60% 重量，取 2.5 的倍数
+  e.sets.unshift({ w: warmW, r: 12, t: 'w' });
+  touchSession(woKey);
+  renderWorkout(woKey);
+}
+
 function woAddSet(ei) {
   var S = store.sessions[woKey]; if (!S) return;
   var e = S.entries[ei]; if (!e) return;
@@ -1163,7 +1247,9 @@ function renderWorkout(dsKey) {
     + '<button class="close-btn" onclick="woFinish()">结束</button></div>';
 
   h += '<div class="wo-bar"><span>用时 <b>' + woFmt(woElapsed(S)) + '</b></span>'
-    + '<span>进度 <b>' + doneSets + '/' + totalSets + ' 组</b></span></div>';
+    + '<span>进度 <b>' + doneSets + '/' + totalSets + ' 组</b></span>'
+    + '<button class="btn-xs" onclick="woTestSound()">🔔 试听</button></div>'
+    + '<div class="wo-sndmsg" id="woSoundMsg"></div>';
 
   h += '<div class="ov-body">';
 
@@ -1183,7 +1269,7 @@ function renderWorkout(dsKey) {
   h += '<div class="wo-sets">';
   e.sets.forEach(function (st, si) {
     var isNext = !st.done && e.sets.slice(0, si).every(function (x) { return x.done; });
-    h += '<div class="wo-set' + (st.done ? ' done' : '') + (isNext ? ' cur' : '') + '">';
+    h += '<div class="wo-set' + (st.done ? ' done' : '') + (isNext ? ' cur' : '') + (st.t === 'w' ? ' warm' : '') + '">';
     h += '<span class="wo-si" onclick="woCycleType(' + woCur + ',' + si + ')" title="点击切换 正式/热身">'
       + (st.t === 'w' ? '热' : (si + 1)) + '</span>';
     h += '<input id="wo-in-' + woCur + '-' + si + '-w" class="rec-in' + (st.t === 'w' ? ' warm' : '') + '" type="number" inputmode="decimal" step="0.5" value="' + inVal(st.w) + '" placeholder="kg" oninput="woInput(' + woCur + ',' + si + ',\'w\',this.value)">';
@@ -1196,7 +1282,11 @@ function renderWorkout(dsKey) {
     h += '<button class="rec-del" onclick="woDelSet(' + woCur + ',' + si + ')">✕</button>';
     h += '</div>';
   });
-  h += '<button class="rec-add" onclick="woAddSet(' + woCur + ')">+ 加一组</button>';
+  h += '<div class="wo-addrow">'
+    + '<button class="rec-add" onclick="woAddWarmup(' + woCur + ')">+ 热身组</button>'
+    + '<button class="rec-add" onclick="woAddSet(' + woCur + ')">+ 正式组</button>'
+    + '</div>';
+  h += '<div class="wo-hint">点组号可切换 正式/热身 · 热身组不计入总容量</div>';
   h += '</div>';
 
   // 备注
@@ -1218,6 +1308,12 @@ function renderWorkout(dsKey) {
 function woNote(val) {
   var S = store.sessions[woKey]; if (!S) return;
   S.note = val; touchSession(woKey);
+}
+
+if (typeof document !== 'undefined' && document.addEventListener) {
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && woKey) woWakeOn();
+  });
 }
 
 woTimerLoad();
