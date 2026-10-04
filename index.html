@@ -143,6 +143,41 @@ a{color:var(--pp);text-decoration:none}
   .log-summary{grid-template-columns:1fr}
   .meal-row{font-size:.68rem}
 }
+
+
+/* ═══════ 训练记录录入（FR-01 / FR-02）═══════ */
+.cal-tools{display:flex;gap:6px;justify-content:center;padding:6px 12px 2px}
+.btn-xs{font:inherit;font-size:.68rem;padding:5px 10px;border-radius:6px;border:1px solid var(--b);background:var(--c2);color:var(--d);cursor:pointer}
+.btn-xs:active{background:var(--c1)}
+.btn-danger{color:var(--rd);border-color:#3a2020}
+.rec-cta{padding:8px 16px}
+.btn-rec{width:100%;font:inherit;font-size:.82rem;font-weight:600;padding:11px;border-radius:8px;border:1px solid var(--gl);background:linear-gradient(180deg,#2a2114,#1a160d);color:var(--gl);cursor:pointer}
+.btn-rec:active{opacity:.8}
+.btn-rec-edit{border-color:var(--b);background:var(--c2);color:var(--t)}
+.rec-list{padding:0 12px}
+.rec-ex{border:1px solid var(--b);border-radius:8px;margin-bottom:8px;overflow:hidden;background:var(--c1)}
+.rec-ex-h{display:flex;align-items:center;gap:8px;padding:9px 10px;cursor:pointer}
+.rec-n{flex:0 0 18px;text-align:center;font-size:.66rem;color:var(--d);border:1px solid var(--b);border-radius:4px;padding:1px 0}
+.rec-name{flex:1 1 auto;min-width:0;font-size:.82rem;color:var(--t);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rec-last{flex:0 0 auto;font-size:.62rem;color:var(--d);white-space:nowrap;max-width:46%;overflow:hidden;text-overflow:ellipsis}
+.rec-ex.collapsed .rec-sets{display:none}
+.rec-sets{padding:0 10px 9px}
+.rec-set{display:flex;align-items:center;gap:6px;padding:3px 0}
+.rec-si{flex:0 0 16px;text-align:center;font-size:.64rem;color:var(--d)}
+.rec-in{flex:1 1 0;min-width:0;font:inherit;font-size:.82rem;text-align:center;padding:6px 4px;border-radius:6px;border:1px solid var(--b);background:#0a0b0e;color:var(--t)}
+.rec-in:focus{outline:none;border-color:var(--gl)}
+.rec-in-r{flex:0 0 62px}
+.rec-u{flex:0 0 auto;font-size:.6rem;color:var(--d)}
+.rec-del{flex:0 0 auto;font:inherit;font-size:.7rem;padding:5px 7px;border-radius:5px;border:1px solid var(--b);background:transparent;color:var(--d);cursor:pointer}
+.rec-del:active{color:var(--rd)}
+.rec-add{width:100%;font:inherit;font-size:.68rem;padding:6px;margin-top:4px;border-radius:6px;border:1px dashed var(--b);background:transparent;color:var(--d);cursor:pointer}
+.rec-note-wrap{padding:4px 12px 0}
+.rec-note{width:100%;box-sizing:border-box;font:inherit;font-size:.76rem;padding:8px;border-radius:8px;border:1px solid var(--b);background:#0a0b0e;color:var(--t);resize:vertical}
+.rec-note:focus{outline:none;border-color:var(--gl)}
+.rec-foot{display:flex;gap:8px;align-items:center;padding:12px}
+.rec-foot .btn-rec{flex:1 1 auto;width:auto}
+.rec-stat{padding:6px 16px 2px;font-size:.66rem;color:var(--gl)}
+.rec-notetext{padding:2px 16px 6px;font-size:.72rem;color:var(--t);line-height:1.5}
 </style>
 </head>
 <body>
@@ -372,6 +407,125 @@ const ADJ={};
 const TCM_LOG={};
 
 /* ══════════════════════════════════════════════════════════════════
+ * 训练中枢 · 本地存储层
+ * ------------------------------------------------------------------
+ * 所有录入的数据都存在浏览器 localStorage 里，**永不上传、永不进源码**。
+ *
+ * 为什么不用源码存数据：以前每次记一次训练都要打开编辑器改 HTML，
+ * 摩擦太大 → 记录链条断了 107 天。录入必须能在 App 内完成。
+ *
+ * 数据结构：
+ *   {
+ *     version: 1,
+ *     sessions: { 'YYYY-MM-DD': Session },
+ *     measures: {},   ← 预留：身体围度（FR-03）
+ *     tcm:      {}    ← 预留：舌诊录入（FR-12）
+ *   }
+ *
+ *   Session = {
+ *     planType: '上肢推',
+ *     entries: [ { n:1, name:'平板杠铃卧推', sets:[ {w:65,r:8}, ... ], note:'' } ],
+ *     note: '',
+ *     createdAt, updatedAt
+ *   }
+ *
+ * 说明：Node 环境（回归测试）没有 localStorage，会退回内存实现，
+ *       这样测试也能覆盖全部读写逻辑。
+ * ══════════════════════════════════════════════════════════════════ */
+
+const LS_KEY = 'zx.store.v1';
+
+var _mem = {};
+var _ls = (typeof localStorage !== 'undefined' && localStorage) ? localStorage : {
+  getItem: function (k) { return Object.prototype.hasOwnProperty.call(_mem, k) ? _mem[k] : null; },
+  setItem: function (k, v) { _mem[k] = String(v); },
+  removeItem: function (k) { delete _mem[k]; }
+};
+
+function emptyStore() { return { version: 1, sessions: {}, measures: {}, tcm: {} }; }
+
+function loadStore() {
+  var o = null;
+  try { o = JSON.parse(_ls.getItem(LS_KEY) || 'null'); } catch (e) { o = null; }
+  if (!o || typeof o !== 'object') o = emptyStore();
+  if (!o.sessions || typeof o.sessions !== 'object') o.sessions = {};
+  if (!o.measures || typeof o.measures !== 'object') o.measures = {};
+  if (!o.tcm || typeof o.tcm !== 'object') o.tcm = {};
+  o.version = 1;
+  return o;
+}
+
+var store = loadStore();
+
+function saveStore() {
+  try { _ls.setItem(LS_KEY, JSON.stringify(store)); return true; }
+  catch (e) {
+    if (typeof alert === 'function') alert('保存失败：' + (e && e.message ? e.message : e));
+    return false;
+  }
+}
+
+/* ── 查询 ────────────────────────────────────────────────────────── */
+
+/** 某天是否有记录（新录入或历史存档） */
+function hasLog(dsKey) { return !!(store.sessions[dsKey] || LOGS[dsKey]); }
+
+/** 取某天的新格式记录（没有则 null） */
+function getSession(dsKey) { return store.sessions[dsKey] || null; }
+
+/** 全部记录合并视图：新录入优先，历史存档兜底 */
+function allSessions() {
+  var out = {};
+  Object.keys(LOGS || {}).forEach(function (k) { out[k] = LOGS[k]; });
+  Object.keys(store.sessions).forEach(function (k) { out[k] = store.sessions[k]; });
+  return out;
+}
+
+/** 把历史存档（汇总式 'rep 6·6·6·5'）粗略解析成逐组，仅用于「上次」预填。
+ *  解析不准没关系——数值会填进输入框，用户可以直接改。 */
+function parseLegacySet(a) {
+  var w = parseFloat(String(a.wt).replace(/[^0-9.]/g, ''));
+  if (!isFinite(w)) w = 0;
+  var reps = String(a.rep).split(/[·、,，/]/).map(function (x) { return parseInt(x, 10); })
+    .filter(function (x) { return isFinite(x) && x > 0; });
+  return { w: w, reps: reps.length ? reps : [0] };
+}
+
+/** 把任一会话（新格式或历史存档）统一成 entries 视图。
+ *  历史存档的 actual 里只有动作编号 n，需要用当日的计划表解析出动作名。 */
+function sessionEntries(S) {
+  if (!S) return [];
+  if (S.entries) return S.entries;
+  var P = (typeof PLAN !== 'undefined') ? PLAN[S.planType] : null;
+  return (S.actual || []).map(function (a) {
+    var pe = P ? P.ex.filter(function (x) { return x.n === a.n; })[0] : null;
+    return { n: a.n, name: pe ? pe.name : ('动作' + a.n), rawW: a.wt, rawR: a.rep, legacy: true };
+  });
+}
+
+/** 找某动作在 beforeKey 之前最近一次的记录，用于显示「上次」并预填 */
+function lastSessionFor(name, beforeKey) {
+  var all = allSessions();
+  var keys = Object.keys(all).filter(function (k) { return k < beforeKey; }).sort();
+  for (var i = keys.length - 1; i >= 0; i--) {
+    var s = all[keys[i]];
+    var ents = sessionEntries(s);
+    for (var j = 0; j < ents.length; j++) {
+      var e = ents[j];
+      if (e.name !== name) continue;
+      var sets = null;
+      if (e.sets && e.sets.length) sets = e.sets.map(function (x) { return { w: x.w, r: x.r }; });
+      else if (e.legacy || e.rawW) { var p = parseLegacySet({ wt: e.rawW || '', rep: e.rawR || '' }); sets = p.reps.map(function (r) { return { w: p.w, r: r }; }); }
+      if (sets && sets.length) return { date: keys[i], sets: sets, legacy: !e.sets };
+    }
+  }
+  return null;
+}
+
+/** 某天的记录是否是新录入的（可编辑），还是历史存档（只读） */
+function isEditable(dsKey) { return !!store.sessions[dsKey]; }
+
+/* ══════════════════════════════════════════════════════════════════
  * 训练中枢 · 渲染逻辑
  * ------------------------------------------------------------------
  * 数据结构见 data.public.js 与 data.private.js。
@@ -430,11 +584,14 @@ function renderCalendar(){
     const typeKey=TYPES[day];
     h+='<div class="'+cls.join(' ')+'" onclick="openDay(\''+dsKey+'\')">';
     h+='<span class="n">'+d+'</span>';
-    if(LOGS[dsKey])h+='<span class="dot"></span>';
+    if(hasLog(dsKey))h+='<span class="dot"></span>';
     h+='<span class="tag">'+typeKey+'</span>';
     h+='</div>';
   }
   h+='</div>';
+  h+='<div class="cal-tools"><button class="btn-xs" onclick="exportData()">⬇ 导出数据</button>'
+    +'<button class="btn-xs" onclick="document.getElementById(\'importFile\').click()">⬆ 导入数据</button>'
+    +'<input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)"></div>';
   document.getElementById('calContainer').innerHTML=h;
   document.getElementById('todayLabel').textContent='今天 '+ts;
 }
@@ -443,7 +600,7 @@ function navCal(dir){calM+=dir;if(calM<0){calM=11;calY--}if(calM>11){calM=0;calY
 // ── MAIN VIEW ──
 function openDay(dsKey){
   const ptype=getPlanType(new Date(dsKey));
-  if(LOGS[dsKey]){showLog(dsKey,ptype);return}
+  if(hasLog(dsKey)){showLog(dsKey,ptype);return}
   if(ptype==='休'||ptype==='休日'){showRestDay(dsKey,ptype);return}
   showPlan(dsKey,ptype);
 }
@@ -453,6 +610,7 @@ function showPlan(dsKey,ptype){
   const adj=ADJ[dsKey];
   let h=ovHeader(dsKey,P.day+' · '+P.total,adj?'已叠加调整':'');
   h+='<div class="ov-body">';
+  h+=recButton(dsKey,ptype);
   h+=adjLayer('今日调整提醒',adj);
   h+='<div class="layer"><div class="layer-h" onclick="toggleLayer(this)"><span class="icon">📋</span>训练计划 · '+P.total+'<span class="arrow">▼</span></div><div class="layer-b">';
   h+='<div style="font-size:.65em;color:var(--d);margin-bottom:4px">目标肌群：'+[...new Set(P.ex.map(e=>e.mus))].join(' · ')+'</div>';
@@ -495,7 +653,14 @@ function showRestDay(dsKey,ptype){
   renderMain(h);
 }
 
+/* 分派：新录入的记录走 showNewLog（逐组、可编辑）；
+   历史存档（2026-05~06 的汇总格式）走 showLegacyLog（只读）。 */
 function showLog(dsKey,ptype){
+  if(store.sessions[dsKey]){showNewLog(dsKey,ptype);return;}
+  showLegacyLog(dsKey,ptype);
+}
+
+function showLegacyLog(dsKey,ptype){
   const L=LOGS[dsKey];if(!L)return;
   const P=PLAN[L.planType];
   const adj=ADJ[L.summary.next];
@@ -525,6 +690,7 @@ function showLog(dsKey,ptype){
   }
   if(!P)h+='<div class="tea-note warn">⚠️ 此记录属于 2026-05 的旧分化（推1/拉1/推2/拉2 体系），与当前四天计划不通用，因此不显示当日动作对照表。茶饮与恢复方案仍按旧分化显示。</div>';
   h+='<div style="font-size:.65em;color:var(--d);padding:4px 16px">→ 下次训练：'+(sm.next||'—')+'</div>';
+  h+='<div style="font-size:.62em;color:var(--d);padding:0 16px 4px">📦 这是历史存档（汇总格式，只读）</div>';
   h+='</div></div>';
   h+=adjLayer('针对本次训练的调整（下次生效）',adj);
   h+=adjLayer('当日调整提醒',ADJ[dsKey]);
@@ -608,6 +774,239 @@ function closeView(){
 // INIT
 // ═══════════════════════════════════════════
 renderCalendar();
+
+
+// ═══════════════════════════════════════════
+// 训练记录录入（FR-01 / FR-02）
+// ═══════════════════════════════════════════
+
+var recCurKey = null;
+
+function fmtSets(sets){
+  if(!sets||!sets.length)return'—';
+  var v=sets.filter(function(x){return x.w!=null||x.r!=null;});
+  if(!v.length)return'—';
+  var ws=v.map(function(x){return x.w;});
+  var uniq=ws.filter(function(x,i){return ws.indexOf(x)===i;});
+  if(uniq.length===1){
+    var w=uniq[0];
+    var wp=(w===0||w==null)?'自重':w+'kg';
+    return wp+' · '+v.map(function(x){return x.r==null?'—':x.r;}).join('/');
+  }
+  return v.map(function(x){return (x.w==null?'?':x.w)+'×'+(x.r==null?'—':x.r);}).join('  ');
+}
+
+function inVal(v){return (v===null||v===undefined)?'':v;}
+
+function recButton(dsKey,ptype){
+  var P=PLAN[ptype];
+  if(!P||!P.ex||!P.ex.length)return'';
+  var has=!!store.sessions[dsKey];
+  return '<div class="rec-cta"><button class="btn-rec'+(has?' btn-rec-edit':'')+'" onclick="showRec(\''+dsKey+'\')">'
+    +(has?'✏️ 编辑本次记录':'📝 记录训练')+'</button></div>';
+}
+
+/** 建立（或取回）某天的草稿。新建时用「上次同动作」的数据预填，没有历史就用计划目标。 */
+function ensureSession(dsKey){
+  if(store.sessions[dsKey])return store.sessions[dsKey];
+  var ptype=getPlanType(new Date(dsKey));
+  var P=PLAN[ptype];
+  var entries=[];
+  if(P&&P.ex){
+    P.ex.forEach(function(e){
+      var last=lastSessionFor(e.name,dsKey);
+      var sets=[];
+      if(last){
+        sets=last.sets.map(function(x){return {w:x.w,r:x.r};});
+      }else{
+        var m=String(e.sr).match(/^(\d+)\s*×/);
+        var n=m?Number(m[1]):3;
+        var w=parseFloat(String(e.wt).replace(/[^0-9.]/g,''));
+        if(!isFinite(w))w=0;
+        for(var i=0;i<n;i++)sets.push({w:w,r:null});
+      }
+      entries.push({n:e.n,name:e.name,sets:sets,note:''});
+    });
+  }
+  store.sessions[dsKey]={planType:ptype,entries:entries,note:'',
+    createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
+  return store.sessions[dsKey];
+}
+
+function showRec(dsKey){
+  recCurKey=dsKey;
+  ensureSession(dsKey);
+  saveStore();
+  recRender(dsKey);
+}
+
+function recRender(dsKey){
+  var S=store.sessions[dsKey];if(!S)return;
+  var P=PLAN[S.planType];
+  var adj=ADJ[dsKey];
+  var h='<div class="ov-header"><div><div class="title">📝 记录训练</div>'
+    +'<div class="sub">'+dsKey+' · '+S.planType+'</div></div>'
+    +'<button class="close-btn" onclick="closeView()">✕</button></div>';
+  h+='<div class="ov-body">';
+  if(adj)h+=adjLayer('今日目标（计划调整）',adj);
+  h+='<div class="rec-list">';
+  S.entries.forEach(function(e,ei){
+    var pEx=P?P.ex.filter(function(x){return x.n===e.n;})[0]:null;
+    var last=lastSessionFor(e.name,dsKey);
+    var hint=last?('上次 '+fmtSets(last.sets)):(pEx?(pEx.wt+' · '+pEx.sr):'首次');
+    h+='<div class="rec-ex" id="rec-ex-'+ei+'">';
+    h+='<div class="rec-ex-h" onclick="recToggle('+ei+')">'
+      +'<span class="rec-n">'+e.n+'</span>'
+      +'<span class="rec-name">'+e.name+'</span>'
+      +'<span class="rec-last">'+hint+'</span>'
+      +'</div>';
+    h+='<div class="rec-sets">';
+    e.sets.forEach(function(x,si){
+      h+='<div class="rec-set">'
+        +'<span class="rec-si">'+(si+1)+'</span>'
+        +'<input class="rec-in" type="number" inputmode="decimal" step="0.5" value="'+inVal(x.w)+'" placeholder="kg" oninput="recInput('+ei+','+si+',\'w\',this.value)">'
+        +'<span class="rec-u">kg</span>'
+        +'<input class="rec-in rec-in-r" type="number" inputmode="numeric" value="'+inVal(x.r)+'" placeholder="次" oninput="recInput('+ei+','+si+',\'r\',this.value)">'
+        +'<span class="rec-u">次</span>'
+        +'<button class="rec-del" onclick="recDelSet('+ei+','+si+')" title="删除这一组">✕</button>'
+        +'</div>';
+    });
+    h+='<button class="rec-add" onclick="recAddSet('+ei+')">+ 加一组</button>';
+    h+='</div></div>';
+  });
+  h+='</div>';
+  h+='<div class="rec-note-wrap"><textarea class="rec-note" rows="2" placeholder="备注（状态、肩有没有响、哪里不舒服…）" oninput="recNote(this.value)">'+(S.note||'')+'</textarea></div>';
+  h+='<div class="rec-foot">'
+    +'<button class="btn-rec" onclick="recFinish(\''+dsKey+'\')">✓ 完成</button>'
+    +'<button class="btn-xs btn-danger" onclick="recDelete(\''+dsKey+'\')">删除本次</button>'
+    +'</div>';
+  h+='</div>';
+  renderMain(h);
+}
+
+function recToggle(ei){
+  var el=document.getElementById('rec-ex-'+ei);
+  if(el)el.classList.toggle('collapsed');
+}
+
+function recInput(ei,si,field,val){
+  var S=store.sessions[recCurKey];if(!S)return;
+  var e=S.entries[ei];if(!e||!e.sets[si])return;
+  var n=parseFloat(val);
+  e.sets[si][field]=(val===''||!isFinite(n))?null:(field==='r'?Math.round(n):n);
+  S.updatedAt=new Date().toISOString();
+  saveStore();
+}
+
+function recAddSet(ei){
+  var S=store.sessions[recCurKey];if(!S)return;
+  var e=S.entries[ei];if(!e)return;
+  var prev=null;
+  for(var i=e.sets.length-1;i>=0;i--){
+    if(e.sets[i].w!=null||e.sets[i].r!=null){prev=e.sets[i];break;}
+  }
+  if(!prev)prev=e.sets[e.sets.length-1]||{w:null,r:null};
+  e.sets.push({w:prev.w,r:prev.r});
+  S.updatedAt=new Date().toISOString();
+  saveStore();recRender(recCurKey);
+}
+
+function recDelSet(ei,si){
+  var S=store.sessions[recCurKey];if(!S)return;
+  var e=S.entries[ei];if(!e)return;
+  e.sets.splice(si,1);
+  S.updatedAt=new Date().toISOString();
+  saveStore();recRender(recCurKey);
+}
+
+function recNote(val){
+  var S=store.sessions[recCurKey];if(!S)return;
+  S.note=val;S.updatedAt=new Date().toISOString();saveStore();
+}
+
+function recFinish(dsKey){
+  var S=store.sessions[dsKey];if(!S)return;
+  S.entries.forEach(function(e){
+    e.sets=e.sets.filter(function(x){return !(x.w==null&&x.r==null);});
+  });
+  var done=S.entries.filter(function(e){return e.sets.length;}).length;
+  S.summary={done:done+'/'+S.entries.length};
+  S.updatedAt=new Date().toISOString();
+  saveStore();
+  renderCalendar();
+  showLog(dsKey,getPlanType(new Date(dsKey)));
+}
+
+function recDelete(dsKey){
+  if(typeof confirm==='function'&&!confirm('删除 '+dsKey+' 的记录？不可撤销。'))return;
+  delete store.sessions[dsKey];
+  saveStore();renderCalendar();closeView();
+}
+
+/** 新格式记录（逐组）的展示 */
+function showNewLog(dsKey,ptype){
+  var S=store.sessions[dsKey];if(!S)return;
+  var adj=ADJ[dsKey];
+  var h=ovHeader(dsKey,'📝 训练实录 · '+S.planType,(S.summary&&S.summary.done)||'');
+  h+='<div class="ov-body">';
+  h+=recButton(dsKey,S.planType);
+  h+='<div class="layer"><div class="layer-h" onclick="toggleLayer(this)"><span class="icon">📊</span>训练记录<span class="arrow">▼</span></div><div class="layer-b">';
+  var totalSets=0,vol=0,any=false;
+  S.entries.forEach(function(e){
+    if(!e.sets||!e.sets.length)return;
+    any=true;totalSets+=e.sets.length;
+    e.sets.forEach(function(x){if(x.w&&x.r)vol+=x.w*x.r;});
+    h+='<div class="la-row"><span class="la-n">'+e.n+'</span><span class="la-name">'+e.name+'</span><span class="la-data">'+fmtSets(e.sets)+'</span></div>';
+  });
+  if(!any)h+='<div class="tea-note" style="padding:4px 0">还没有录入任何组</div>';
+  else h+='<div class="rec-stat">总组数 '+totalSets+' · 总容量 '+Math.round(vol)+' kg</div>';
+  if(S.note)h+='<div class="rec-notetext">📝 '+esc(S.note)+'</div>';
+  h+='</div></div>';
+  h+=adjLayer('当日调整提醒',adj);
+  h+=tcmSection(dsKey);
+  h+=teaSection(S.planType,dsKey);
+  h+=recSection(S.planType);
+  h+=nutSection(ptype);
+  h+=ovFooter();
+  h+='</div>';
+  renderMain(h);
+}
+
+// ── 数据导出 / 导入（FR-04）──────────────────
+
+function exportData(){
+  var payload={app:'训练中枢',version:1,exportedAt:new Date().toISOString(),store:store};
+  var blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='训练中枢-数据-'+ds(new Date())+'.json';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  setTimeout(function(){URL.revokeObjectURL(a.href);},1000);
+}
+
+function importData(ev){
+  var f=ev.target.files&&ev.target.files[0];if(!f)return;
+  var r=new FileReader();
+  r.onload=function(){
+    try{
+      var o=JSON.parse(r.result);
+      var inc=(o&&o.store)?o.store:o;
+      if(!inc||!inc.sessions)throw new Error('文件里没有 sessions 字段');
+      var n=Object.keys(inc.sessions).length;
+      if(typeof confirm==='function'&&!confirm('导入 '+n+' 天的记录？同名日期会被文件里的版本覆盖。'))return;
+      Object.keys(inc.sessions).forEach(function(k){store.sessions[k]=inc.sessions[k];});
+      ['measures','tcm'].forEach(function(g){
+        if(inc[g])Object.keys(inc[g]).forEach(function(k){store[g][k]=inc[g][k];});
+      });
+      saveStore();renderCalendar();
+      if(typeof alert==='function')alert('已导入 '+n+' 天记录');
+    }catch(e){
+      if(typeof alert==='function')alert('导入失败：'+(e&&e.message?e.message:e));
+    }
+    ev.target.value='';
+  };
+  r.readAsText(f);
+}
 </script>
 <script>
 /* PWA 注册：失败不影响页面功能 */
