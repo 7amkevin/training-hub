@@ -361,6 +361,84 @@ a{color:var(--pp);text-decoration:none}
 .pl-row-main span{display:block;font-size:.6rem;color:var(--d);margin-top:3px}
 .pl-badge{flex:0 0 auto;font-size:.55rem;color:var(--gl);border:1px solid var(--gl);border-radius:4px;padding:1px 5px}
 .pl-go{flex:0 0 auto;color:var(--d);font-size:1.1rem}
+
+
+/* ═══════ 印章（FR-10）═══════
+ * 靠三件事做出「印章感」而不是「图标感」：
+ *   1. mask 上的噪声渐变在边框上啃出缺口
+ *   2. 印面叠加不规则墨色 + multiply 混合
+ *   3. 轻微旋转，每次角度略有不同
+ */
+.seal{
+  --s:34px; --rot:-7deg;
+  position:relative; display:inline-flex; align-items:center; justify-content:center;
+  width:var(--s); height:var(--s); flex:0 0 auto;
+  transform:rotate(var(--rot));
+  color:#c8443a;
+  font-family:"STKaiti","KaiTi","Songti SC","SimSun",serif;
+  font-weight:700; font-style:normal;
+  -webkit-user-select:none; user-select:none;
+  -webkit-mask-image:
+    radial-gradient(circle at 12% 8%, transparent 3.2px, #000 3.2px),
+    radial-gradient(circle at 91% 17%, transparent 2.6px, #000 2.6px),
+    radial-gradient(circle at 6% 74%, transparent 2.2px, #000 2.2px),
+    radial-gradient(circle at 84% 93%, transparent 3.4px, #000 3.4px),
+    radial-gradient(circle at 47% 2%, transparent 1.8px, #000 1.8px);
+  mask-image:
+    radial-gradient(circle at 12% 8%, transparent 3.2px, #000 3.2px),
+    radial-gradient(circle at 91% 17%, transparent 2.6px, #000 2.6px),
+    radial-gradient(circle at 6% 74%, transparent 2.2px, #000 2.2px),
+    radial-gradient(circle at 84% 93%, transparent 3.4px, #000 3.4px),
+    radial-gradient(circle at 47% 2%, transparent 1.8px, #000 1.8px);
+}
+.seal.green{color:#4f9d6e}
+.seal-face{
+  display:grid; gap:calc(var(--s)*.03);
+  width:calc(var(--s)*.82); height:calc(var(--s)*.82);
+  border:calc(var(--s)*.075) solid currentColor;
+  border-radius:calc(var(--s)*.1);
+  padding:calc(var(--s)*.05);
+  box-sizing:border-box;
+  background:
+    radial-gradient(circle at 30% 24%, currentColor 0%, transparent 55%),
+    radial-gradient(circle at 78% 82%, currentColor 0%, transparent 48%);
+  background-size:100% 100%;
+  opacity:.94;
+  mix-blend-mode:screen;
+}
+.seal.g1 .seal-face{grid-template-columns:1fr; grid-template-rows:1fr}
+.seal.g2 .seal-face{grid-template-columns:1fr; grid-template-rows:1fr 1fr}
+.seal.g4 .seal-face{grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr}
+.seal-face i{
+  font-style:normal; display:flex; align-items:center; justify-content:center;
+  font-size:calc(var(--s)*.34); line-height:1; letter-spacing:0;
+}
+.seal.g1 .seal-face i{font-size:calc(var(--s)*.52)}
+.seal.g4 .seal-face i{font-size:calc(var(--s)*.3)}
+
+/* 日历格子里的迷你印章 */
+.cal-seal{position:absolute; bottom:1px; left:50%; transform:translateX(-50%); line-height:0; pointer-events:none}
+.cal-seal .seal{--rot:-9deg; opacity:.92}
+.cal-seal .seal-face{border-width:calc(var(--s)*.11); border-radius:calc(var(--s)*.12)}
+.cal-seal .seal-face i{font-size:calc(var(--s)*.5)}
+
+/* 全屏盖章动画 */
+.seal-stamp{position:fixed; inset:0; z-index:320; display:flex; align-items:center; justify-content:center;
+  background:radial-gradient(circle at 50% 46%, rgba(200,68,58,.10), rgba(3,3,5,.86) 62%);
+  animation:sealFade .35s ease-out}
+@keyframes sealFade{from{opacity:0}to{opacity:1}}
+.seal-stamp-in{text-align:center}
+.seal-stamp .seal{animation:sealSlam .8s cubic-bezier(.2,1.5,.4,1) both}
+@keyframes sealSlam{
+  0%{transform:rotate(var(--rot)) scale(2.6); opacity:0; filter:blur(4px)}
+  45%{transform:rotate(var(--rot)) scale(.92); opacity:1; filter:blur(0)}
+  62%{transform:rotate(var(--rot)) scale(1.06)}
+  80%{transform:rotate(var(--rot)) scale(.98)}
+  100%{transform:rotate(var(--rot)) scale(1)}
+}
+.seal-stamp-t{margin-top:18px; font-size:.82rem; color:#c89640; letter-spacing:.35em; text-indent:.35em;
+  animation:sealT .6s .45s ease-out both}
+@keyframes sealT{from{opacity:0; transform:translateY(8px)}to{opacity:1; transform:none}}
 </style>
 </head>
 <body>
@@ -722,7 +800,28 @@ function getAdj(dsKey) { var v = store.adj[dsKey]; return v || ADJ[dsKey] || nul
 /** 舌诊：同上 */
 function getTcm(dsKey) { var v = store.tcm[dsKey]; return v || TCM_LOG[dsKey] || null; }
 
-function hasLog(dsKey) { return !!(getSession(dsKey) || LOGS[dsKey]); }
+/** 这条会话到底有没有实质内容？
+ *  为什么需要：ensureSession() 在用户一打开记录界面时就建了空壳，
+ *  如果不加区分，「点开过」就会在日历上留下记录标记。 */
+function sessionHasData(S) {
+  if (!S) return false;
+  if (S.draft) return false;      // 只是打开过记录界面，还没有任何录入
+  if (S.actual && S.actual.length) return true;
+  var ents = S.entries || [];
+  for (var i = 0; i < ents.length; i++) {
+    var sets = ents[i].sets || [];
+    for (var j = 0; j < sets.length; j++) {
+      if (sets[j].w != null || sets[j].r != null) return true;
+    }
+  }
+  return false;
+}
+
+function hasLog(dsKey) {
+  var S = getSession(dsKey);
+  if (S && sessionHasData(S)) return true;
+  return !!LOGS[dsKey];
+}
 
 /** 取某天的新格式记录（没有则 null） */
 function getSession(dsKey) { var v = store.sessions[dsKey]; return (v && !v.deletedAt) ? v : null; }
@@ -919,6 +1018,7 @@ function localRecords() {
     var kind = g[0], obj = g[1] || {};
     Object.keys(obj).forEach(function (date) {
       var v = obj[date];
+      if (v && v.draft) return;        // 草稿不上传
       out.push({
         kind: kind,
         date: date,
@@ -1322,7 +1422,8 @@ function woWakeOff() {
 function startWorkout(dsKey) {
   woKey = dsKey;
   var S = ensureSession(dsKey);
-  if (!S.startedAt) { S.startedAt = new Date().toISOString(); touchSession(dsKey); }
+  // 只记开始时间，保持草稿态 —— 按下开始但一组都没录，不该在日历上留痕
+  if (!S.startedAt) { S.startedAt = new Date().toISOString(); saveStore(); }
   // 定位到第一个「还有没做完的组」的动作
   woCur = 0;
   for (var i = 0; i < S.entries.length; i++) {
@@ -1349,6 +1450,8 @@ function woFinish() {
   var k = woKey; woKey = null;
   renderCalendar();
   showNewLog(k, S.planType);
+  // 盖下印章 —— 这是设计稿说的「视觉化的完成感」
+  showSealStamp(['训','练','完','成'], 'red', '训练完成');
 }
 
 /* ── 计时器控制 ── */
@@ -2358,6 +2461,79 @@ function planResetSchedule() {
 }
 
 /* ══════════════════════════════════════════════════════════════════
+ * 训练中枢 · 印章式完成反馈（FR-10）
+ * ------------------------------------------------------------------
+ * 来源：设计稿「五行暗黑国潮」的五条设计原则之三 ——
+ *   「印章式确认：训练完成＝盖红色印章。视觉化的完成感。」
+ *
+ * 为什么不用普通的勾号/圆点：
+ *   日历上已经有圆点表示「这天有记录」。印章要表达的更强一层 ——
+ *   **「这天我练完了」**，而且要一眼可辨、有仪式感。
+ *
+ * 关于「像不像印章」：
+ *   干净的方块 + 描边看起来像图标，不像印章。真印章的特征是
+ *   **边缘不齐、墨色不匀**。所以这里做了三件事：
+ *     1. 用 CSS mask + 噪声渐变在边框上「啃」出缺口
+ *     2. 印面叠加不规则墨色（径向渐变 + multiply 混合）
+ *     3. 整体轻微旋转，每次角度略有不同（模拟手工盖下的歪斜）
+ *   全部用 CSS 实现，不引入图片或字体文件。
+ * ══════════════════════════════════════════════════════════════════ */
+
+/** 生成一个印章。
+ *  chars: 字符数组。1 个=单字；2 个=竖排；4 个=2×2 田字格（最像传统印章）
+ *  size : 边长（px）
+ *  cls  : 'red'（训练，默认）| 'green'（茶饮，中医模块恢复后再接）
+ */
+function sealHtml(chars, size, cls) {
+  size = size || 34;
+  var list = chars || ['练'];
+  var n = list.length;
+  var grid = (n === 4) ? 'g4' : (n === 2) ? 'g2' : 'g1';
+  var rot = (-8 + (list.join('').charCodeAt(0) % 5)) + 'deg';   // 每个字略不同的角度
+  var body = list.map(function (c) { return '<i>' + c + '</i>'; }).join('');
+  return '<span class="seal ' + (cls || 'red') + ' ' + grid + '" '
+    + 'style="--s:' + size + 'px;--rot:' + rot + '">'
+    + '<span class="seal-face">' + body + '</span>'
+    + '</span>';
+}
+
+/** 这天算不算「练完了」
+ *  三条任一成立即算：显式结束过 / 有 summary.done / 是迁移过来的历史存档
+ */
+function sessionComplete(dsKey) {
+  var S = getSession(dsKey);
+  if (!S) return !!LOGS[dsKey];
+  if (S.finishedAt) return true;
+  if (S.summary && /^\d+\/\d+$/.test(String(S.summary.done))) return true;
+  return false;
+}
+
+/** 日历格子里的迷你印章（单字，够小也能认出） */
+function calSealHtml(dsKey) {
+  if (!hasLog(dsKey)) return '';
+  if (sessionComplete(dsKey)) return '<span class="cal-seal">' + sealHtml(['练'], 16) + '</span>';
+  return '<span class="dot"></span>';        // 只记了一部分，仍是圆点
+}
+
+/** 全屏「盖下印章」动画 —— 训练完成的那一刻 */
+function showSealStamp(chars, cls, title) {
+  if (typeof document === 'undefined' || !document.createElement) return;
+  var old = document.getElementById('sealStamp');
+  if (old && old.remove) old.remove();
+  var el = document.createElement('div');
+  el.id = 'sealStamp';
+  el.className = 'seal-stamp';
+  el.innerHTML = '<div class="seal-stamp-in">'
+    + sealHtml(chars || ['训', '练', '完', '成'], 108, cls)
+    + '<div class="seal-stamp-t">' + (title || '训练完成') + '</div></div>';
+  if (document.body) document.body.appendChild(el);
+  if (el.remove) setTimeout(function () {
+    var e2 = document.getElementById('sealStamp');
+    if (e2 && e2.remove) e2.remove();
+  }, 2400);
+}
+
+/* ══════════════════════════════════════════════════════════════════
  * 训练中枢 · 渲染逻辑
  * ------------------------------------------------------------------
  * 数据结构见 data.public.js 与 data.private.js。
@@ -2416,7 +2592,7 @@ function renderCalendar(){
     const typeKey=getTypes()[day];
     h+='<div class="'+cls.join(' ')+'" onclick="openDay(\''+dsKey+'\')">';
     h+='<span class="n">'+d+'</span>';
-    if(hasLog(dsKey))h+='<span class="dot"></span>';
+    h+=calSealHtml(dsKey);
     h+='<span class="tag">'+typeKey+'</span>';
     h+='</div>';
   }
@@ -2597,7 +2773,9 @@ function nutSection(ptype){
 
 // ── HELPERS ──
 function ovHeader(dsKey,title,sub){
-  return '<div class="ov-header"><div><div class="title">'+title+'</div><div class="sub">'+dsKey+(sub?' · '+sub:'')+'</div></div><button class="close-btn" onclick="closeView()">✕</button></div>';
+  var stamp = (dsKey && /^\d{4}-\d{2}-\d{2}$/.test(String(dsKey)) && sessionComplete(dsKey))
+    ? '<div style="padding-top:6px">'+sealHtml(['训','练','完','成'], 40)+'</div>' : '';
+  return '<div class="ov-header"><div><div class="title">'+title+'</div><div class="sub">'+dsKey+(sub?' · '+sub:'')+'</div>'+stamp+'</div><button class="close-btn" onclick="closeView()">✕</button></div>';
 }
 function ovFooter(){return '<div style="padding:10px 16px;text-align:center"><button class="btn-sm" onclick="closeView()">关闭 · 返回日历</button></div>';}
 function toggleLayer(el){el.closest('.layer').classList.toggle('collapsed')}
@@ -2672,7 +2850,7 @@ function ensureSession(dsKey){
       entries.push({n:e.n,name:e.name,sets:sets,note:''});
     });
   }
-  store.sessions[dsKey]={planType:ptype,entries:entries,note:'',
+  store.sessions[dsKey]={planType:ptype,entries:entries,note:'',draft:true,
     createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
   return store.sessions[dsKey];
 }
@@ -2867,6 +3045,7 @@ var _syncTimer=null;
 /** 改动某天的记录：更新时间戳 + 存盘 + 标记待同步 + 排一个延迟同步 */
 function touchSession(dsKey){
   var S=store.sessions[dsKey];if(!S)return;
+  delete S.draft;                       // 一旦真的改了东西，就不再是草稿
   S.updatedAt=new Date().toISOString();
   markDirty('session',dsKey);
   saveStore();
