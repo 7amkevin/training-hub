@@ -263,6 +263,34 @@ a{color:var(--pp);text-decoration:none}
 @keyframes woping{0%{background:rgba(80,160,96,.55)}100%{background:rgba(10,30,14,.88)}}
 .wo-alert-ok{display:block;margin:22px auto 0;font:inherit;font-size:.9rem;font-weight:600;padding:12px 40px;border-radius:10px;border:1px solid var(--gn);background:rgba(80,160,96,.15);color:var(--gn);cursor:pointer}
 .wo-alert-ok:active{background:rgba(80,160,96,.3)}
+
+
+/* ═══════ 身体围度（FR-03）═══════ */
+.mea-group{padding:0 12px;margin-bottom:12px}
+.mea-gh{font-size:.62rem;color:var(--gl);letter-spacing:.08em;padding:6px 2px 4px;border-bottom:1px solid var(--b);margin-bottom:4px}
+.mea-row{display:flex;align-items:center;gap:6px;padding:3px 0}
+.mea-n{flex:0 0 62px;font-size:.74rem;color:var(--t)}
+.mea-in{flex:1 1 0;min-width:0;font:inherit;font-size:.85rem;text-align:center;padding:7px 4px;border-radius:6px;border:1px solid var(--b);background:#0a0b0e;color:var(--t)}
+.mea-in:focus{outline:none;border-color:var(--gl)}
+.mea-u{flex:0 0 22px;font-size:.6rem;color:var(--d)}
+.mea-prev{flex:0 0 62px;font-size:.58rem;color:var(--d);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mea-d{flex:0 0 42px;font-size:.62rem;text-align:right;white-space:nowrap}
+.mea-ratios{margin:6px 12px 0;padding:10px 12px;border:1px solid var(--b);border-radius:8px;background:var(--c1)}
+.mea-rrow{display:flex;align-items:baseline;gap:8px;padding:4px 0;font-size:.72rem;color:var(--d)}
+.mea-rrow b{color:var(--gl);font-size:.92rem}
+.mea-rrow em{font-style:normal;font-size:.6rem;color:var(--d);margin-left:auto;text-align:right}
+.mea-rhint{font-size:.68rem;color:var(--d);text-align:center;padding:4px 0}
+.mea-note{margin:12px 12px 0;padding-top:10px;border-top:1px solid var(--b);font-size:.64rem;color:var(--d);line-height:1.7}
+.mea-note b{color:var(--t)}
+.mea-tw{overflow-x:auto;padding:0 12px}
+.mea-tbl{width:100%;border-collapse:collapse;font-size:.66rem}
+.mea-tbl th{color:var(--d);font-weight:400;padding:6px 4px;text-align:center;border-bottom:1px solid var(--b);white-space:nowrap}
+.mea-tbl td{padding:6px 4px;text-align:center;color:var(--t);border-bottom:1px solid #14151a;white-space:nowrap}
+.mea-tn{text-align:left !important;color:var(--d) !important}
+.mea-td{font-weight:600}
+.mea-tkey td{color:var(--gl) !important;font-weight:600}
+.up{color:var(--gn)}
+.down{color:var(--rd)}
 </style>
 </head>
 <body>
@@ -1490,6 +1518,237 @@ if (_woTick) clearInterval(_woTick);
 if (woTimerActive()) _woTick = setInterval(woTimerPaint, 250);
 
 /* ══════════════════════════════════════════════════════════════════
+ * 训练中枢 · 身体围度追踪（FR-03）
+ * ------------------------------------------------------------------
+ * 为什么需要它：
+ *   审美目标（肩宽、V-taper、方正胸型）全是**比例**目标，
+ *   但之前系统里一条围度数据都没有 —— 无法回答「我有没有在朝目标走」。
+ *   训练模式管「练得够不够」，围度管「练得对不对」。
+ *
+ * 为什么用「肩围」而不是「肩宽」：
+ *   肩宽（两肩峰直线距离）要用卡尺或靠墙量，自测误差大；
+ *   肩围用软尺绕最宽处一圈即可，且是健美界追踪 V-taper 的标准指标。
+ *
+ * 数据存储：store.measures['YYYY-MM-DD'] = { weight, chest, ... , updatedAt }
+ *          走 kind='measure'，数据库与同步层早已支持，无需改表。
+ * ══════════════════════════════════════════════════════════════════ */
+
+var MEA_FIELDS = [
+  { g: '基础', k: 'weight',  n: '体重',   u: 'kg' },
+  { g: '基础', k: 'bodyfat', n: '体脂率', u: '%',  opt: true },
+  { g: '躯干', k: 'neck',    n: '颈围',   u: 'cm' },
+  { g: '躯干', k: 'shoulder',n: '肩围',   u: 'cm' },
+  { g: '躯干', k: 'chest',   n: '胸围',   u: 'cm' },
+  { g: '躯干', k: 'waist',   n: '腰围',   u: 'cm' },
+  { g: '躯干', k: 'hip',     n: '臀围',   u: 'cm' },
+  { g: '手臂', k: 'armL',    n: '左上臂', u: 'cm' },
+  { g: '手臂', k: 'armR',    n: '右上臂', u: 'cm' },
+  { g: '手臂', k: 'foreL',   n: '左前臂', u: 'cm' },
+  { g: '手臂', k: 'foreR',   n: '右前臂', u: 'cm' },
+  { g: '腿',   k: 'thighL',  n: '左大腿', u: 'cm' },
+  { g: '腿',   k: 'thighR',  n: '右大腿', u: 'cm' },
+  { g: '腿',   k: 'calfL',   n: '左小腿', u: 'cm' },
+  { g: '腿',   k: 'calfR',   n: '右小腿', u: 'cm' }
+];
+
+var meaCurKey = null;
+
+/* ── 读写 ─────────────────────────────────────────────────────── */
+
+function meaGet(dsKey) { return store.measures[dsKey] || null; }
+
+/** 找 dsKey 之前最近一次的测量（用于「上次」对照与预填） */
+function meaLast(beforeKey) {
+  var keys = Object.keys(store.measures).filter(function (k) {
+    return (!beforeKey || k < beforeKey) && !isDeleted(store.measures[k]);
+  }).sort();
+  return keys.length ? { date: keys[keys.length - 1], data: store.measures[keys[keys.length - 1]] } : null;
+}
+
+function meaTouch(dsKey) {
+  var o = store.measures[dsKey]; if (!o) return;
+  o.updatedAt = new Date().toISOString();
+  markDirty('measure', dsKey);
+  saveStore();
+  scheduleSync();
+}
+
+function meaSet(dsKey, k, v) {
+  if (!store.measures[dsKey]) store.measures[dsKey] = { updatedAt: new Date().toISOString() };
+  var n = parseFloat(v);
+  if (v === '' || !isFinite(n)) delete store.measures[dsKey][k];
+  else store.measures[dsKey][k] = Math.round(n * 10) / 10;   // 保留 1 位小数
+  meaTouch(dsKey);
+  meaPaintRatios();
+}
+
+/** 有没有填过任何一项（没填过就不该占用日历上的日期） */
+function meaHasData(o) {
+  if (!o) return false;
+  return MEA_FIELDS.some(function (f) { return o[f.k] != null; });
+}
+
+/* ── 派生指标 ─────────────────────────────────────────────────── */
+
+/** 保留 1 位小数 —— 避免 38.2 - 37.8 = 0.4000000000000057 这种浮点噪音 */
+function r1(x) { return Math.round(x * 10) / 10; }
+
+function meaRatios(o) {
+  if (!o) return {};
+  var r = {};
+  if (o.shoulder && o.waist) r.shoulderWaist = Math.round(o.shoulder / o.waist * 100) / 100;      // 肩腰比（V-taper 核心）
+  if (o.chest && o.waist)    r.chestWaist    = r1(o.chest - o.waist);         // 胸腰差（倒三角来源）
+  if (o.waist && o.hip)      r.waistHip      = Math.round(o.waist / o.hip * 100) / 100;           // 腰臀比
+  if (o.armL && o.armR)      r.armDiff       = r1(o.armR - o.armL);           // 左右臂差（惯用侧）
+  if (o.thighL && o.thighR)  r.thighDiff     = r1(o.thighR - o.thighL);
+  if (o.calfL && o.calfR)    r.calfDiff      = r1(o.calfR - o.calfL);
+  return r;
+}
+
+/* ── 录入界面 ─────────────────────────────────────────────────── */
+
+function showMeasure(dsKey) {
+  dsKey = dsKey || ds(new Date());
+  meaCurKey = dsKey;
+  if (!store.measures[dsKey]) store.measures[dsKey] = { updatedAt: new Date().toISOString() };
+  var cur = store.measures[dsKey];
+  var last = meaLast(dsKey);
+  var lastData = last ? last.data : null;
+
+  var h = '<div class="ov-header"><div><div class="title">📏 身体围度</div>'
+    + '<div class="sub">' + dsKey + (last ? ' · 上次 ' + last.date : ' · 首次测量') + '</div></div>'
+    + '<button class="close-btn" onclick="closeView()">✕</button></div>';
+  h += '<div class="ov-body">';
+
+  var groups = [];
+  MEA_FIELDS.forEach(function (f) { if (groups.indexOf(f.g) < 0) groups.push(f.g); });
+  groups.forEach(function (g) {
+    h += '<div class="mea-group"><div class="mea-gh">' + g + '</div>';
+    MEA_FIELDS.filter(function (f) { return f.g === g; }).forEach(function (f) {
+      var v = cur[f.k];
+      var prev = lastData ? lastData[f.k] : null;
+      var delta = (v != null && prev != null) ? (v - prev) : null;
+      var dTxt = '';
+      if (delta != null && Math.abs(delta) >= 0.05) {
+        dTxt = '<span class="mea-d ' + (delta > 0 ? 'up' : 'down') + '">'
+             + (delta > 0 ? '+' : '') + delta.toFixed(1) + '</span>';
+      }
+      h += '<div class="mea-row">'
+        + '<span class="mea-n">' + f.n + '</span>'
+        + '<input class="mea-in" type="number" inputmode="decimal" step="0.1" value="' + inVal(v) + '"'
+        + ' placeholder="' + (prev != null ? prev : '—') + '"'
+        + ' oninput="meaSet(\'' + dsKey + '\',\'' + f.k + '\',this.value)" onchange="meaRowRefresh()">'
+        + '<span class="mea-u">' + f.u + '</span>'
+        + '<span class="mea-prev">' + (prev != null ? '上次 ' + prev : (f.opt ? '可选' : '')) + '</span>'
+        + dTxt
+        + '</div>';
+    });
+    h += '</div>';
+  });
+
+  h += '<div class="mea-ratios" id="meaRatios">' + meaRatiosHtml(cur) + '</div>';
+  h += '<div class="mea-note">测量建议：<b>每两周一次</b>，早上空腹、同一时间、软尺贴皮不压紧。<br>'
+    + '围度变化慢，天天量只会看到噪音。</div>';
+  h += '<div class="rec-foot">'
+    + '<button class="btn-rec" onclick="closeView()">✓ 完成</button>'
+    + '<button class="btn-xs" onclick="showMeasureTrend()">📈 看趋势</button>'
+    + '<button class="btn-xs btn-danger" onclick="meaDelete(\'' + dsKey + '\')">删除本次</button>'
+    + '</div>';
+  h += '</div>';
+  renderMain(h);
+}
+
+function meaRatiosHtml(o) {
+  var r = meaRatios(o);
+  var rows = [];
+  if (r.shoulderWaist != null) {
+    var target = 1.50;
+    var gap = r.shoulderWaist - target;
+    rows.push(['肩腰比', r.shoulderWaist.toFixed(2),
+      (gap >= 0 ? '✅ 已达标 ' : '距目标 1.50 还差 ') + Math.abs(gap).toFixed(2)]);
+  }
+  if (r.chestWaist != null) rows.push(['胸腰差', r.chestWaist.toFixed(1) + ' cm', '倒三角的视觉来源']);
+  if (r.waistHip != null) rows.push(['腰臀比', r.waistHip.toFixed(2), '']);
+  if (r.armDiff != null && Math.abs(r.armDiff) >= 0.2) rows.push(['左右臂差', (r.armDiff > 0 ? '+' : '') + r.armDiff.toFixed(1) + ' cm', '惯用侧通常更粗，超过 1cm 要留意']);
+  if (r.thighDiff != null && Math.abs(r.thighDiff) >= 0.5) rows.push(['左右腿差', (r.thighDiff > 0 ? '+' : '') + r.thighDiff.toFixed(1) + ' cm', '']);
+  if (!rows.length) return '<div class="mea-rhint">填了肩围 + 腰围后会自动算出肩腰比</div>';
+  return rows.map(function (x) {
+    return '<div class="mea-rrow"><span>' + x[0] + '</span><b>' + x[1] + '</b><em>' + x[2] + '</em></div>';
+  }).join('');
+}
+
+function meaPaintRatios() {
+  var el = document.getElementById('meaRatios');
+  if (!el || !meaCurKey) return;
+  el.innerHTML = meaRatiosHtml(store.measures[meaCurKey]);
+}
+
+function meaRowRefresh() { /* onchange 钩子，留给将来做整行重绘 */ }
+
+function meaDelete(dsKey) {
+  if (typeof confirm === 'function' && !confirm('删除 ' + dsKey + ' 的围度记录？')) return;
+  if (isLoggedIn()) {
+    var o = store.measures[dsKey];
+    if (o) { o.deletedAt = new Date().toISOString(); o.updatedAt = o.deletedAt; markDirty('measure', dsKey); }
+  } else {
+    delete store.measures[dsKey];
+  }
+  saveStore(); renderCalendar(); closeView();
+}
+
+/* ── 趋势 ─────────────────────────────────────────────────────── */
+
+function showMeasureTrend() {
+  var keys = Object.keys(store.measures)
+    .filter(function (k) { return !isDeleted(store.measures[k]) && meaHasData(store.measures[k]); })
+    .sort();
+  var h = '<div class="ov-header"><div><div class="title">📈 围度趋势</div>'
+    + '<div class="sub">共 ' + keys.length + ' 次测量</div></div>'
+    + '<button class="close-btn" onclick="showMeasure()">✕</button></div>';
+  h += '<div class="ov-body">';
+  if (keys.length < 2) {
+    h += '<div class="tea-note" style="padding:12px 16px">至少要有 2 次测量才能看出变化。'
+      + '<br>建议每两周量一次，坚持一个月就有意义了。</div>';
+  } else {
+    var show = keys.slice(-6);              // 最近 6 次
+    h += '<div class="mea-tw"><table class="mea-tbl"><thead><tr><th>部位</th>';
+    show.forEach(function (k) { h += '<th>' + k.slice(5) + '</th>'; });
+    h += '<th>变化</th></tr></thead><tbody>';
+    MEA_FIELDS.forEach(function (f) {
+      var vals = show.map(function (k) { return store.measures[k][f.k]; });
+      if (vals.every(function (x) { return x == null; })) return;   // 该项从没填过就跳过
+      h += '<tr><td class="mea-tn">' + f.n + '</td>';
+      vals.forEach(function (x) { h += '<td>' + (x == null ? '—' : x) + '</td>'; });
+      var first = null, lastV = null;
+      for (var i = 0; i < vals.length; i++) if (vals[i] != null) { if (first === null) first = vals[i]; lastV = vals[i]; }
+      var d = (first != null && lastV != null && vals.filter(function (x) { return x != null; }).length > 1) ? lastV - first : null;
+      h += '<td class="mea-td">' + (d == null ? '—'
+        : '<span class="' + (d > 0 ? 'up' : d < 0 ? 'down' : '') + '">' + (d > 0 ? '+' : '') + d.toFixed(1) + '</span>') + '</td>';
+      h += '</tr>';
+    });
+    // 派生指标行
+    var firstO = store.measures[show[0]], lastO = store.measures[show[show.length - 1]];
+    var r1 = meaRatios(firstO), r2 = meaRatios(lastO);
+    if (r1.shoulderWaist != null && r2.shoulderWaist != null) {
+      var d2 = r2.shoulderWaist - r1.shoulderWaist;
+      h += '<tr class="mea-tkey"><td class="mea-tn">肩腰比</td>';
+      show.forEach(function (k) {
+        var rr = meaRatios(store.measures[k]);
+        h += '<td>' + (rr.shoulderWaist != null ? rr.shoulderWaist.toFixed(2) : '—') + '</td>';
+      });
+      h += '<td class="mea-td"><span class="' + (d2 > 0 ? 'up' : d2 < 0 ? 'down' : '') + '">'
+        + (d2 > 0 ? '+' : '') + d2.toFixed(2) + '</span></td></tr>';
+    }
+    h += '</tbody></table></div>';
+    h += '<div class="mea-note">「变化」= 最右列 − 最左列。绿色是增加，红色是减少。<br>'
+      + '⚠️ 腰围减少、肩围增加，才是朝审美目标走。</div>';
+  }
+  h += '<div class="rec-foot"><button class="btn-rec" onclick="showMeasure()">📏 去测量</button></div>';
+  h += '</div>';
+  renderMain(h);
+}
+
+/* ══════════════════════════════════════════════════════════════════
  * 训练中枢 · 渲染逻辑
  * ------------------------------------------------------------------
  * 数据结构见 data.public.js 与 data.private.js。
@@ -1553,7 +1812,9 @@ function renderCalendar(){
     h+='</div>';
   }
   h+='</div>';
-  h+='<div class="cal-tools"><button class="btn-xs" id="syncBtn" onclick="showAccount()">'+syncLabel()+'</button></div>';
+  h+='<div class="cal-tools"><button class="btn-xs" onclick="showMeasure()">📏 围度</button>'
+    +'<button class="btn-xs" onclick="showMeasureTrend()">📈 趋势</button>'
+    +'<button class="btn-xs" id="syncBtn" onclick="showAccount()">'+syncLabel()+'</button></div>';
   h+='<div class="cal-tools"><button class="btn-xs" onclick="exportData()">⬇ 导出</button>'
     +'<button class="btn-xs" onclick="document.getElementById(\'importFile\').click()">⬆ 导入</button>'
     +'<input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)"></div>';
