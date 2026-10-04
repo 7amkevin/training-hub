@@ -323,6 +323,30 @@ a{color:var(--pp);text-decoration:none}
 .tr-dd{flex:0 0 42px;font-size:.62rem;color:var(--d)}
 .tr-dv{flex:0 0 68px;text-align:right;font-size:.68rem;color:var(--t);font-variant-numeric:tabular-nums}
 .tr-ds{flex:0 0 74px;text-align:right;font-size:.58rem;color:var(--d);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+
+/* ═══════ 训练计划编辑 ═══════ */
+.pl-day{padding:4px 16px 10px}
+.pl-day label,.pl-f label,.pl-f2 label{display:block;font-size:.6rem;color:var(--d);margin:0 0 4px}
+.pl-list{padding:0 12px}
+.pl-ex{border:1px solid var(--b);border-radius:8px;margin-bottom:6px;background:var(--c1);overflow:hidden}
+.pl-ex.open{border-color:var(--gl)}
+.pl-ex-h{display:flex;align-items:center;gap:8px;padding:9px 10px;cursor:pointer}
+.pl-name{flex:1 1 auto;min-width:0;font-size:.8rem;color:var(--t);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pl-tags{flex:0 0 auto;font-size:.6rem;color:var(--d);white-space:nowrap;max-width:42%;overflow:hidden;text-overflow:ellipsis}
+.pl-arrow{flex:0 0 auto;font-size:.6rem;color:var(--d)}
+.pl-ex-b{padding:2px 10px 10px;border-top:1px solid var(--b)}
+.pl-f{padding:8px 0 2px}
+.pl-f2{display:flex;gap:8px;padding-top:8px}
+.pl-f2>div{flex:1 1 0;min-width:0}
+.pl-btns{display:flex;gap:5px;align-items:flex-end}
+.pl-btns .btn-xs{flex:1 1 0;padding:9px 4px}
+.pl-total{padding:10px 16px 4px;font-size:.7rem;color:var(--d)}
+.pl-total b{color:var(--gl);font-size:.85rem}
+.pl-hint{font-size:.6rem}
+.pl-dow{display:flex;align-items:center;gap:10px;padding:6px 16px}
+.pl-dn{flex:0 0 40px;font-size:.74rem;color:var(--t)}
+.pl-dow select{flex:1 1 auto}
 </style>
 </head>
 <body>
@@ -389,7 +413,7 @@ const LS_SYNC = 'zx.sync.v1';
 const TYPES={1:'上肢推',2:'下肢背',3:'休',4:'上肢推拉',5:'拉辅助',6:'恢复',0:'休日'};
 const TAGCLS={1:'tg-t1',2:'tg-l1',3:'tg-x',4:'tg-t2',5:'tg-l2',6:'tg-r',0:'tg-x'};
 function ds(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
-function getPlanType(d){return TYPES[new Date(d).getDay()]}
+function getPlanType(d){return getTypes()[new Date(d).getDay()]}
 
 // ── PLAN ──
 const PLAN={
@@ -606,7 +630,7 @@ var _ls = (typeof localStorage !== 'undefined' && localStorage) ? localStorage :
   removeItem: function (k) { delete _mem[k]; }
 };
 
-function emptyStore() { return { version: 1, sessions: {}, measures: {}, tcm: {}, adj: {} }; }
+function emptyStore() { return { version: 1, sessions: {}, measures: {}, tcm: {}, adj: {}, plans: { types: null, days: {}, updatedAt: null } }; }
 
 function loadStore() {
   var o = null;
@@ -616,6 +640,8 @@ function loadStore() {
   if (!o.measures || typeof o.measures !== 'object') o.measures = {};
   if (!o.tcm || typeof o.tcm !== 'object') o.tcm = {};
   if (!o.adj || typeof o.adj !== 'object') o.adj = {};
+  if (!o.plans || typeof o.plans !== 'object') o.plans = { types: null, days: {}, updatedAt: null };
+  if (!o.plans.days || typeof o.plans.days !== 'object') o.plans.days = {};
   o.version = 1;
   return o;
 }
@@ -634,6 +660,47 @@ function saveStore() {
 
 /** 某天是否有记录（新录入或历史存档） */
 function isDeleted(v) { return !!(v && v.deletedAt); }
+
+/* ── 训练计划：用户自定义优先，内置模板兜底 ──────────────────────
+ * PLAN / TYPES 在 data.public.js 里，是**出厂默认模板**。
+ * 用户改过的部分存在 store.plans，会随账号同步。
+ * 这样一套结构同时满足两件事：
+ *   1. 用户自己改计划，不用碰源码
+ *   2. 产品化时每个用户有自己的计划，而不是共享同一份硬编码
+ */
+function getTypes() {
+  var u = store.plans && store.plans.types;
+  return (u && Object.keys(u).length) ? u : TYPES;
+}
+
+function getPlan(ptype) {
+  var u = store.plans && store.plans.days && store.plans.days[ptype];
+  if (u && u.ex) return u;
+  return PLAN[ptype] || null;
+}
+
+/** 该计划日是否被用户改过（用于「恢复默认」按钮的显示） */
+function isPlanCustom(ptype) {
+  return !!(store.plans && store.plans.days && store.plans.days[ptype]);
+}
+
+function touchPlans() {
+  if (!store.plans) store.plans = { types: null, days: {}, updatedAt: null };
+  store.plans.updatedAt = new Date().toISOString();
+  markDirty('plan', '1970-01-01');
+  saveStore();
+  if (typeof scheduleSync === 'function') scheduleSync();
+}
+
+/** 组数合计：从动作表实时算，避免与声明值不一致 */
+function planTotal(P) {
+  if (!P) return '';
+  if (!P.ex || !P.ex.length) return P.total || '';
+  var n = P.ex.reduce(function (a, e) {
+    var m = String(e.sr).match(/^(\d+)\s*×/); return a + (m ? Number(m[1]) : 0);
+  }, 0);
+  return n > 0 ? n + '组' : (P.total || '');
+}
 
 /** 单日调整：优先取本地（含云端同步来的），回落到源码里的历史存档 */
 function getAdj(dsKey) { var v = store.adj[dsKey]; return v || ADJ[dsKey] || null; }
@@ -669,7 +736,7 @@ function parseLegacySet(a) {
 function sessionEntries(S) {
   if (!S) return [];
   if (S.entries) return S.entries;
-  var P = (typeof PLAN !== 'undefined') ? PLAN[S.planType] : null;
+  var P = (typeof getPlan === 'function') ? getPlan(S.planType) : null;
   return (S.actual || []).map(function (a) {
     var pe = P ? P.ex.filter(function (x) { return x.n === a.n; })[0] : null;
     return { n: a.n, name: pe ? pe.name : ('动作' + a.n), rawW: a.wt, rawR: a.rep, legacy: true };
@@ -711,6 +778,8 @@ function isEditable(dsKey) { return !!store.sessions[dsKey]; }
  *   3. 先拉后推 —— 合并（同 key 取 updated_at 较新者）后只推脏数据
  *   4. 全程 try/catch —— 任何网络错误都不能让页面崩
  * ══════════════════════════════════════════════════════════════════ */
+
+var PLAN_ROW_DATE = '1970-01-01';   // 计划不是按日期的，用哨兵日期占位
 
 var _fetch = (typeof fetch === 'function') ? fetch.bind(typeof window !== 'undefined' ? window : globalThis) : null;
 
@@ -845,12 +914,27 @@ function localRecords() {
       });
     });
   });
+  // 训练计划：整份存在一条记录里（不是按日期），用哨兵日期
+  if (store.plans && store.plans.days && Object.keys(store.plans.days).length) {
+    out.push({
+      kind: 'plan', date: PLAN_ROW_DATE, data: store.plans,
+      updated_at: store.plans.updatedAt || new Date().toISOString(), deleted_at: null
+    });
+  }
   return out;
 }
 
 /** 把服务端返回的行写回本地 store */
 function applyRemote(rows) {
   (rows || []).forEach(function (row) {
+    // 计划是整份替换，不按日期合并
+    if (row.kind === 'plan') {
+      var lAt = (store.plans && store.plans.updatedAt) ? Date.parse(store.plans.updatedAt) : 0;
+      var rAt = row.updated_at ? Date.parse(row.updated_at) : 0;
+      if (row.deleted_at) { if (lAt <= rAt) store.plans = { types: null, days: {}, updatedAt: null }; return; }
+      if (rAt >= lAt) store.plans = row.data;
+      return;
+    }
     var bucket = row.kind === 'session' ? store.sessions
                : row.kind === 'measure' ? store.measures
                : row.kind === 'tcm'     ? store.tcm
@@ -1371,7 +1455,7 @@ function woCompleteSet(ei, si) {
   touchSession(woKey);
 
   // 自动开计时：用本动作的休息时长
-  var P = PLAN[S.planType];
+  var P = getPlan(S.planType);
   var pEx = P ? P.ex.filter(function (x) { return x.n === e.n; })[0] : null;
   var secs = pEx ? parseRest(pEx.rest) : 90;
   if (st.t !== 'w') woTimerStart(secs, e.name);   // 热身组之间不强制长休息
@@ -1455,7 +1539,7 @@ function woElapsed(S) {
 /* ── 渲染 ── */
 function renderWorkout(dsKey) {
   var S = store.sessions[dsKey]; if (!S) return;
-  var P = PLAN[S.planType];
+  var P = getPlan(S.planType);
   var e = S.entries[woCur];
   if (!e) { woFinish(); return; }
   var pEx = P ? P.ex.filter(function (x) { return x.n === e.n; })[0] : null;
@@ -2010,6 +2094,210 @@ function showExerciseDetail(name) {
 }
 
 /* ══════════════════════════════════════════════════════════════════
+ * 训练中枢 · 训练计划编辑
+ * ------------------------------------------------------------------
+ * 在此之前，训练计划是硬编码在 data.public.js 里的常量 ——
+ * 想改一个动作或调一次重量，都得改源码。
+ *
+ * 现在 PLAN / TYPES 降级为**出厂默认模板**，用户改过的部分存在
+ * store.plans 里，随账号同步。一套结构同时满足两件事：
+ *   1. 用户自己改计划，不用碰源码
+ *   2. 产品化时每个用户有自己的计划，而不是所有人都看到同一份硬编码
+ *
+ * 数据结构：
+ *   store.plans = {
+ *     types: { 1:'上肢推', 2:'下肢背', ... }   // 星期 → 计划类型（null 表示用默认）
+ *     days:  { '上肢推': { day:'…', ex:[…] } } // 只存被改过的计划日
+ *     updatedAt
+ *   }
+ * ══════════════════════════════════════════════════════════════════ */
+
+var Q = "'";                   // 拼 onclick 用，避免反斜杠转义踩坑
+var planOpen = -1;             // 当前展开编辑的动作下标，-1 表示都收起
+var planEditKey = null;
+
+/** 取（必要时从模板深拷贝出）可编辑的计划对象 */
+function planEnsure(ptype) {
+  if (!store.plans) store.plans = { types: null, days: {}, updatedAt: null };
+  if (!store.plans.days[ptype]) {
+    var t = PLAN[ptype];
+    if (!t) return null;
+    store.plans.days[ptype] = JSON.parse(JSON.stringify(t));
+  }
+  return store.plans.days[ptype];
+}
+
+/* ── 编辑操作 ─────────────────────────────────────────────────── */
+
+function planSetDay(ptype, v) {
+  var d = planEnsure(ptype); if (!d) return;
+  d.day = v; touchPlans();
+}
+
+function planExSet(ptype, i, field, v) {
+  var d = planEnsure(ptype); if (!d || !d.ex[i]) return;
+  d.ex[i][field] = v;
+  touchPlans();
+  if (field === 'name') planRender();
+}
+
+function planExAdd(ptype) {
+  var d = planEnsure(ptype); if (!d) return;
+  var n = d.ex.length ? Math.max.apply(null, d.ex.map(function (x) { return x.n || 0; })) + 1 : 1;
+  d.ex.push({ n: n, name: '新动作', mus: '', wt: '', sr: '3×10-12', rest: '1.5min', rir: 'RIR 1' });
+  planOpen = d.ex.length - 1;
+  touchPlans(); planRender();
+}
+
+function planExDel(ptype, i) {
+  var d = planEnsure(ptype); if (!d) return;
+  if (typeof confirm === 'function' && !confirm('删除「' + (d.ex[i] ? d.ex[i].name : '') + '」？')) return;
+  d.ex.splice(i, 1);
+  d.ex.forEach(function (x, k) { x.n = k + 1; });
+  planOpen = -1;
+  touchPlans(); planRender();
+}
+
+function planExMove(ptype, i, dir) {
+  var d = planEnsure(ptype); if (!d) return;
+  var j = i + dir;
+  if (j < 0 || j >= d.ex.length) return;
+  var tmp = d.ex[i]; d.ex[i] = d.ex[j]; d.ex[j] = tmp;
+  d.ex.forEach(function (x, k) { x.n = k + 1; });
+  planOpen = j;
+  touchPlans(); planRender();
+}
+
+function planReset(ptype) {
+  if (typeof confirm === 'function' && !confirm('把「' + ptype + '」恢复成出厂默认计划？\n你在这个计划上的所有修改都会丢失。')) return;
+  if (store.plans && store.plans.days) delete store.plans.days[ptype];
+  touchPlans(); planRender(); renderCalendar();
+}
+
+function planOpenEx(i) { planOpen = (planOpen === i ? -1 : i); planRender(); }
+
+/* ── 计划日编辑器 ─────────────────────────────────────────────── */
+
+function showPlanEditor(ptype) {
+  planEditKey = ptype; planOpen = -1;
+  planEnsure(ptype);
+  planRender();
+}
+
+function planRender() {
+  var ptype = planEditKey;
+  var d = getPlan(ptype);
+  if (!d) { closeView(); return; }
+  var custom = isPlanCustom(ptype);
+
+  var h = '<div class="ov-header"><div><div class="title">✏️ 编辑训练计划</div>'
+    + '<div class="sub">' + ptype + (custom ? ' · 已自定义' : ' · 出厂默认') + '</div></div>'
+    + '<button class="close-btn" onclick="closeView()">✕</button></div>';
+  h += '<div class="ov-body">';
+
+  h += '<div class="pl-day"><label>日名</label>'
+    + '<input class="acc-in" value="' + esc(d.day || '') + '" oninput="planSetDay(' + Q + ptype + Q + ',this.value)"></div>';
+
+  h += '<div class="pl-list">';
+  if (!d.ex || !d.ex.length) {
+    h += '<div class="tea-note" style="padding:12px 0">这个计划日还没有动作</div>';
+  } else {
+    d.ex.forEach(function (e, i) {
+      var open = (planOpen === i);
+      h += '<div class="pl-ex' + (open ? ' open' : '') + '">';
+      h += '<div class="pl-ex-h" onclick="planOpenEx(' + i + ')">'
+        + '<span class="rec-n">' + e.n + '</span>'
+        + '<span class="pl-name">' + esc(e.name || '') + '</span>'
+        + '<span class="pl-tags">' + esc(e.wt || '') + ' · ' + esc(e.sr || '') + '</span>'
+        + '<span class="pl-arrow">' + (open ? '▲' : '▼') + '</span></div>';
+      if (open) {
+        h += '<div class="pl-ex-b">'
+          + '<div class="pl-f"><label>动作名</label><input class="acc-in" value="' + esc(e.name || '') + '" oninput="planExSet(' + Q + ptype + Q + ',' + i + ',\'name\',this.value)"></div>'
+          + '<div class="pl-f2">'
+          + '<div><label>目标肌群</label><input class="acc-in" value="' + esc(e.mus || '') + '" oninput="planExSet(' + Q + ptype + Q + ',' + i + ',\'mus\',this.value)"></div>'
+          + '<div><label>重量</label><input class="acc-in" value="' + esc(e.wt || '') + '" placeholder="65kg" oninput="planExSet(' + Q + ptype + Q + ',' + i + ',\'wt\',this.value)"></div>'
+          + '</div>'
+          + '<div class="pl-f2">'
+          + '<div><label>组×次</label><input class="acc-in" value="' + esc(e.sr || '') + '" placeholder="4×6-8" oninput="planExSet(' + Q + ptype + Q + ',' + i + ',\'sr\',this.value)"></div>'
+          + '<div><label>组间休息</label><input class="acc-in" value="' + esc(e.rest || '') + '" placeholder="2.5min" oninput="planExSet(' + Q + ptype + Q + ',' + i + ',\'rest\',this.value)"></div>'
+          + '</div>'
+          + '<div class="pl-f2">'
+          + '<div><label>RIR</label><input class="acc-in" value="' + esc(e.rir || '') + '" placeholder="RIR 2" oninput="planExSet(' + Q + ptype + Q + ',' + i + ',\'rir\',this.value)"></div>'
+          + '<div class="pl-btns">'
+          + '<button class="btn-xs" onclick="planExMove(' + Q + ptype + Q + ',' + i + ',-1)"' + (i === 0 ? ' disabled' : '') + '>↑</button>'
+          + '<button class="btn-xs" onclick="planExMove(' + Q + ptype + Q + ',' + i + ',1)"' + (i === d.ex.length - 1 ? ' disabled' : '') + '>↓</button>'
+          + '<button class="btn-xs btn-danger" onclick="planExDel(' + Q + ptype + Q + ',' + i + ')">删除</button>'
+          + '</div></div>'
+          + '</div>';
+      }
+      h += '</div>';
+    });
+  }
+  h += '</div>';
+
+  h += '<div class="pl-total">合计 <b>' + planTotal(d) + '</b>'
+    + ' · <span class="pl-hint">组数由动作表实时算出</span></div>';
+
+  h += '<button class="rec-add" onclick="planExAdd(' + Q + ptype + Q + ')">+ 添加动作</button>';
+
+  h += '<div class="mea-note">改动<b>即时保存</b>并自动同步。'
+    + '编辑后这个计划日会脱离出厂模板，只影响你自己的账号。</div>';
+
+  h += '<div class="rec-foot">'
+    + '<button class="btn-rec" onclick="closeView()">✓ 完成</button>'
+    + (custom ? '<button class="btn-xs" onclick="planReset(' + Q + ptype + Q + ')">恢复默认</button>' : '')
+    + '<button class="btn-xs" onclick="showScheduleEditor()">📅 星期安排</button>'
+    + '</div>';
+  h += '</div>';
+  renderMain(h);
+}
+
+/* ── 星期安排 ─────────────────────────────────────────────────── */
+
+var DOW_NAME = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+var DOW_ORDER = [1, 2, 3, 4, 5, 6, 0];
+
+function showScheduleEditor() {
+  var types = getTypes();
+  var names = Object.keys(PLAN);
+  // 把用户可能新增的类型也纳入选项
+  Object.keys(store.plans && store.plans.days || {}).forEach(function (k) { if (names.indexOf(k) < 0) names.push(k); });
+
+  var h = '<div class="ov-header"><div><div class="title">📅 星期安排</div>'
+    + '<div class="sub">哪天练哪个计划</div></div>'
+    + '<button class="close-btn" onclick="closeView()">✕</button></div>';
+  h += '<div class="ov-body">';
+  DOW_ORDER.forEach(function (dow) {
+    h += '<div class="pl-dow"><span class="pl-dn">' + DOW_NAME[dow] + '</span>'
+      + '<select class="acc-in" onchange="planSetType(' + dow + ',this.value)">';
+    names.forEach(function (n) {
+      h += '<option value="' + esc(n) + '"' + (types[dow] === n ? ' selected' : '') + '>' + esc(n) + '</option>';
+    });
+    h += '</select></div>';
+  });
+  var custom = !!(store.plans && store.plans.types && Object.keys(store.plans.types).length);
+  h += '<div class="mea-note">这一栏决定「日历上每一天显示哪个计划」。<br>'
+    + '改动即时保存并同步到所有设备。</div>';
+  h += '<div class="rec-foot"><button class="btn-rec" onclick="closeView()">✓ 完成</button>'
+    + (custom ? '<button class="btn-xs" onclick="planResetSchedule()">恢复默认</button>' : '')
+    + '</div>';
+  h += '</div>';
+  renderMain(h);
+}
+
+function planSetType(dow, name) {
+  if (!store.plans.types) store.plans.types = JSON.parse(JSON.stringify(TYPES));
+  store.plans.types[dow] = name;
+  touchPlans();
+}
+
+function planResetSchedule() {
+  if (typeof confirm === 'function' && !confirm('恢复默认的星期安排？')) return;
+  if (store.plans) store.plans.types = null;
+  touchPlans(); showScheduleEditor(); renderCalendar();
+}
+
+/* ══════════════════════════════════════════════════════════════════
  * 训练中枢 · 渲染逻辑
  * ------------------------------------------------------------------
  * 数据结构见 data.public.js 与 data.private.js。
@@ -2045,7 +2333,7 @@ function dt(name){
   return h;
 }
 
-function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+function esc(s){const d=document.createElement('div');d.textContent=(s==null?'':String(s));return d.innerHTML}
 
 // ── CALENDAR ──
 let calY=(new Date()).getFullYear(),calM=(new Date()).getMonth();
@@ -2065,7 +2353,7 @@ function renderCalendar(){
     const dsKey=calY+'-'+String(calM+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
     const date=new Date(calY,calM,d);const day=date.getDay();
     const cls=['cell'];if(dsKey===ts)cls.push('today');
-    const typeKey=TYPES[day];
+    const typeKey=getTypes()[day];
     h+='<div class="'+cls.join(' ')+'" onclick="openDay(\''+dsKey+'\')">';
     h+='<span class="n">'+d+'</span>';
     if(hasLog(dsKey))h+='<span class="dot"></span>';
@@ -2075,6 +2363,7 @@ function renderCalendar(){
   h+='</div>';
   h+='<div class="cal-tools"><button class="btn-xs" onclick="showMeasure()">📏 围度</button>'
     +'<button class="btn-xs" onclick="showVolumeTrend()">📊 训练量</button>'
+    +'<button class="btn-xs" onclick="showScheduleEditor()">📋 计划</button>'
     +'<button class="btn-xs" id="syncBtn" onclick="showAccount()">'+syncLabel()+'</button></div>';
   h+='<div class="cal-tools"><button class="btn-xs" onclick="exportData()">⬇ 导出</button>'
     +'<button class="btn-xs" onclick="document.getElementById(\'importFile\').click()">⬆ 导入</button>'
@@ -2093,9 +2382,9 @@ function openDay(dsKey){
 }
 
 function showPlan(dsKey,ptype){
-  const P=PLAN[ptype];if(!P)return;
+  const P=getPlan(ptype);if(!P)return;
   const adj=getAdj(dsKey);
-  let h=ovHeader(dsKey,P.day+' · '+P.total,adj?'已叠加调整':'');
+  let h=ovHeader(dsKey,P.day+' · '+planTotal(P),adj?'已叠加调整':'');
   h+='<div class="ov-body">';
   h+=recButton(dsKey,ptype);
   h+=adjLayer('今日调整提醒',adj);
@@ -2104,6 +2393,7 @@ function showPlan(dsKey,ptype){
   P.ex.forEach(e=>{
     h+='<div class="ex-row" onclick="this.classList.toggle(\'open\')"><div class="ex-sum"><span class="ex-n">'+e.n+'</span><span class="ex-name">'+e.name+'</span><span class="ex-tag">'+e.wt+'</span><span class="ex-tag">'+e.sr+'</span><span class="ex-tag">'+e.rest+'</span><span class="ex-tag">'+e.rir+'</span></div><div class="ex-detail">'+dt(e.name)+'</div></div>';
   });
+  h+='<div style="padding:10px 0 2px"><button class="btn-xs" onclick="showPlanEditor('+Q+ptype+Q+')">✏️ 编辑这个计划</button></div>';
   h+='</div></div>';
   h+=tcmSection(dsKey);
   h+=teaSection(ptype,dsKey);
@@ -2150,7 +2440,7 @@ function showLog(dsKey,ptype){
 
 function showLegacyLog(dsKey,ptype){
   const L=store.sessions[dsKey]||LOGS[dsKey];if(!L)return;
-  const P=PLAN[L.planType];
+  const P=getPlan(L.planType);
   const adj=getAdj(L.summary.next);
   const sm=L.summary||{};
   let h=ovHeader(dsKey,'📝 训练实录 · '+L.planType,sm.done||'');
@@ -2288,7 +2578,7 @@ function fmtSets(sets){
 function inVal(v){return (v===null||v===undefined)?'':v;}
 
 function recButton(dsKey,ptype){
-  var P=PLAN[ptype];
+  var P=getPlan(ptype);
   if(!P||!P.ex||!P.ex.length)return'';
   var S=store.sessions[dsKey];
   var has=!!(S&&S.entries);
@@ -2304,7 +2594,7 @@ function recButton(dsKey,ptype){
 function ensureSession(dsKey){
   if(store.sessions[dsKey])return store.sessions[dsKey];
   var ptype=getPlanType(new Date(dsKey));
-  var P=PLAN[ptype];
+  var P=getPlan(ptype);
   var entries=[];
   if(P&&P.ex){
     P.ex.forEach(function(e){
@@ -2336,7 +2626,7 @@ function showRec(dsKey){
 
 function recRender(dsKey){
   var S=store.sessions[dsKey];if(!S)return;
-  var P=PLAN[S.planType];
+  var P=getPlan(S.planType);
   var adj=getAdj(dsKey);
   var h='<div class="ov-header"><div><div class="title">📝 记录训练</div>'
     +'<div class="sub">'+dsKey+' · '+S.planType+'</div></div>'
