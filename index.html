@@ -193,6 +193,41 @@ a{color:var(--pp);text-decoration:none}
 .acc-row b{color:var(--t);font-weight:600}
 .acc-err{font-size:.68rem;color:var(--rd);padding:8px 0;word-break:break-all}
 .acc-err:empty{display:none}
+
+
+/* ═══════ 训练模式（FR-16 / FR-17）═══════ */
+.wo-bar{display:flex;justify-content:space-between;align-items:center;padding:8px 16px;font-size:.68rem;color:var(--d);border-bottom:1px solid var(--b)}
+.wo-bar b{color:var(--gl);font-weight:600}
+.wo-card{margin:10px 12px 0;padding:10px 12px;border:1px solid var(--b);border-radius:8px;background:var(--c1)}
+.wo-nav{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.wo-nav .btn-xs{min-width:44px}
+.wo-nav .btn-xs:disabled{opacity:.35}
+.wo-idx{font-size:.68rem;color:var(--d)}
+.wo-title{font-size:1rem;font-weight:600;color:var(--t);padding:8px 0 4px}
+.wo-meta{font-size:.66rem;color:var(--d);line-height:1.6}
+.wo-sets{padding:10px 12px 0}
+.wo-set{display:flex;align-items:center;gap:6px;padding:4px 0}
+.wo-set.done{opacity:.55}
+.wo-set.done .rec-in{text-decoration:line-through}
+.wo-set.cur .wo-si{background:var(--gl);color:#0a0b0e;border-color:var(--gl)}
+.wo-si{flex:0 0 22px;text-align:center;font-size:.66rem;color:var(--d);border:1px solid var(--b);border-radius:5px;padding:3px 0;cursor:pointer;user-select:none}
+.rec-in.warm{border-color:#3a3320;color:var(--d)}
+.wo-ck{flex:0 0 auto;font:inherit;font-size:.66rem;padding:6px 8px;border-radius:6px;border:1px solid var(--b);background:var(--c2);color:var(--d);cursor:pointer;white-space:nowrap}
+.wo-ck.on{background:#1a2a1c;border-color:var(--gn);color:var(--gn);font-size:.8rem;padding:4px 10px}
+.wo-foot{display:flex;gap:6px;align-items:center;padding:12px;border-top:1px solid var(--b);margin-top:12px}
+.wo-foot .btn-xs{white-space:nowrap}
+.wo-foot .btn-xs:disabled{opacity:.35}
+
+/* 休息计时器浮层 */
+.wo-timer{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;background:rgba(3,3,5,.9);backdrop-filter:blur(3px)}
+.wo-timer-in{width:min(300px,84vw);text-align:center;padding:22px 18px;border:1px solid var(--b);border-radius:14px;background:var(--c1);box-shadow:0 12px 40px rgba(0,0,0,.6)}
+.wo-timer-k{font-size:.7rem;color:var(--d);margin-bottom:10px}
+.wo-timer-v{font-size:3.1rem;font-weight:700;color:var(--gl);font-variant-numeric:tabular-nums;letter-spacing:.02em;line-height:1}
+.wo-timer-bar{height:4px;border-radius:2px;background:var(--b);margin:18px 0 16px;overflow:hidden}
+.wo-timer-bar i{display:block;height:100%;background:var(--gl);transition:width .25s linear}
+.wo-timer-btns{display:flex;gap:8px;justify-content:center}
+.wo-timer-btns button{flex:1 1 0;font:inherit;font-size:.76rem;padding:10px 4px;border-radius:8px;border:1px solid var(--b);background:var(--c2);color:var(--t);cursor:pointer}
+.wo-timer-btns button:active{background:var(--b)}
 </style>
 </head>
 <body>
@@ -860,6 +895,336 @@ authRestore();
 if (!isLoggedIn()) syncStatus = 'noauth';
 
 /* ══════════════════════════════════════════════════════════════════
+ * 训练中枢 · 训练模式（FR-16 休息计时器 / FR-17 流程引导 / 组标记）
+ * ------------------------------------------------------------------
+ * 和「记录训练」（showRec）的区别：
+ *   showRec      编辑模式 —— 一屏看全部动作，用于事后补记、修改、回看
+ *   训练模式      引导模式 —— 一次只看当前动作，做完一组点完成、自动计时
+ *
+ * 三个设计决定值得说明：
+ *   1. 倒计时用「结束时间戳」而不是递减计数器
+ *      手机锁屏 / 切后台时浏览器会把 setInterval 节流到 1 次/秒甚至暂停，
+ *      递减计数会越走越慢；按时间戳算则永远准确。
+ *   2. 计时状态写进 localStorage，刷新页面 / 误关也能接着走
+ *   3. 自动申请 Wake Lock 保持屏幕常亮 —— 健身房低头看表时屏幕别黑
+ * ══════════════════════════════════════════════════════════════════ */
+
+var woCur = 0;                       // 当前动作下标
+var woKey = null;                    // 当前训练日期
+var woTimer = { endsAt: 0, total: 0, label: '' };
+var _woTick = null;
+var _woWake = null;
+
+var LS_WO = 'zx.workout.v1';
+
+/* ── 休息时长解析：把 PLAN 里的 '3min' / '2.5min' / '40s' / '—' 变成秒 ── */
+function parseRest(str) {
+  var s = String(str || '');
+  var m = s.match(/([\d.]+)\s*min/i);
+  if (m) return Math.round(parseFloat(m[1]) * 60);
+  m = s.match(/([\d.]+)\s*s(ec)?/i);
+  if (m) return Math.round(parseFloat(m[1]));
+  return 90;                          // 兜底 90 秒
+}
+
+/* ── 计时器持久化 ── */
+function woTimerSave() {
+  try { _ls.setItem(LS_WO, JSON.stringify(woTimer)); } catch (e) {}
+}
+function woTimerLoad() {
+  try {
+    var o = JSON.parse(_ls.getItem(LS_WO) || 'null');
+    if (o && o.endsAt) woTimer = o;
+  } catch (e) {}
+}
+function woTimerActive() { return woTimer.endsAt > Date.now(); }
+function woTimerLeft() { return Math.max(0, Math.ceil((woTimer.endsAt - Date.now()) / 1000)); }
+function woFmt(sec) {
+  sec = Math.max(0, Math.round(sec));
+  var m = Math.floor(sec / 60), s = sec % 60;
+  return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+}
+
+/* ── 提示音 + 震动（都不依赖外部文件）── */
+function woBeep(times) {
+  times = times || 1;
+  try {
+    var AC = (typeof window !== 'undefined') && (window.AudioContext || window.webkitAudioContext);
+    if (!AC) return;
+    var ctx = new AC();
+    for (var i = 0; i < times; i++) {
+      var t0 = ctx.currentTime + i * 0.28;
+      var o = ctx.createOscillator(), g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.value = 880;
+      o.type = 'sine';
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(0.35, t0 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.22);
+      o.start(t0); o.stop(t0 + 0.25);
+    }
+    setTimeout(function () { try { ctx.close(); } catch (e) {} }, 400 + times * 300);
+  } catch (e) { /* 忽略 */ }
+  try { if (navigator.vibrate) navigator.vibrate([220, 90, 220, 90, 220]); } catch (e) {}
+}
+
+/* ── Wake Lock：训练期间屏幕别黑 ── */
+async function woWakeOn() {
+  try {
+    if (!navigator.wakeLock) return;
+    if (_woWake) return;
+    _woWake = await navigator.wakeLock.request('screen');
+    _woWake.addEventListener('release', function () { _woWake = null; });
+  } catch (e) { /* 不支持就算了 */ }
+}
+function woWakeOff() {
+  try { if (_woWake) { _woWake.release(); _woWake = null; } } catch (e) {}
+}
+
+/* ── 开始 / 结束训练 ── */
+function startWorkout(dsKey) {
+  woKey = dsKey;
+  var S = ensureSession(dsKey);
+  if (!S.startedAt) { S.startedAt = new Date().toISOString(); touchSession(dsKey); }
+  // 定位到第一个「还有没做完的组」的动作
+  woCur = 0;
+  for (var i = 0; i < S.entries.length; i++) {
+    var done = (S.entries[i].sets || []).filter(function (x) { return x.done; }).length;
+    if (done < (S.entries[i].sets || []).length) { woCur = i; break; }
+  }
+  woWakeOn();
+  renderWorkout(dsKey);
+}
+
+function woFinish() {
+  var S = store.sessions[woKey]; if (!S) return;
+  S.finishedAt = new Date().toISOString();
+  // 清掉全空的组
+  S.entries.forEach(function (e) {
+    e.sets = (e.sets || []).filter(function (x) { return !(x.w == null && x.r == null); });
+  });
+  var done = S.entries.filter(function (e) { return e.sets.length; }).length;
+  S.summary = { done: done + '/' + S.entries.length };
+  touchSession(woKey);
+  woTimerStop(); woWakeOff();
+  var k = woKey; woKey = null;
+  renderCalendar();
+  showNewLog(k, S.planType);
+}
+
+/* ── 计时器控制 ── */
+function woTimerStart(seconds, label) {
+  woTimer = { endsAt: Date.now() + seconds * 1000, total: seconds, label: label || '' };
+  woTimerSave();
+  woTimerPaint();
+  if (_woTick) clearInterval(_woTick);
+  _woTick = setInterval(woTimerPaint, 250);
+}
+function woTimerStop() {
+  woTimer = { endsAt: 0, total: 0, label: '' };
+  woTimerSave();
+  if (_woTick) { clearInterval(_woTick); _woTick = null; }
+  var el = document.getElementById('woTimer');
+  if (el) el.remove();
+}
+function woTimerAdjust(delta) {
+  if (!woTimer.endsAt) return;
+  woTimer.endsAt += delta * 1000;
+  woTimer.total = Math.max(woTimer.total + delta, 1);
+  woTimerSave();
+  woTimerPaint();
+}
+function woTimerPaint() {
+  var el = document.getElementById('woTimer');
+  if (!woTimer.endsAt) { if (el) el.remove(); return; }
+  var left = woTimerLeft();
+  if (left <= 0) {
+    woBeep(3);
+    woTimerStop();
+    return;
+  }
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'woTimer';
+    el.className = 'wo-timer';
+    document.body.appendChild(el);
+  }
+  var pct = woTimer.total ? Math.max(0, Math.min(100, (1 - left / woTimer.total) * 100)) : 0;
+  el.innerHTML = '<div class="wo-timer-in">'
+    + '<div class="wo-timer-k">休息' + (woTimer.label ? ' · ' + esc(woTimer.label) : '') + '</div>'
+    + '<div class="wo-timer-v">' + woFmt(left) + '</div>'
+    + '<div class="wo-timer-bar"><i style="width:' + pct.toFixed(1) + '%"></i></div>'
+    + '<div class="wo-timer-btns">'
+    + '<button onclick="woTimerAdjust(-15)">-15s</button>'
+    + '<button onclick="woTimerAdjust(15)">+15s</button>'
+    + '<button onclick="woTimerStop()">跳过</button>'
+    + '</div></div>';
+}
+
+/* ── 组的操作 ── */
+function woCompleteSet(ei, si) {
+  var S = store.sessions[woKey]; if (!S) return;
+  var e = S.entries[ei]; if (!e || !e.sets[si]) return;
+  var st = e.sets[si];
+  if (st.w == null || st.r == null) {
+    // 没填完就先聚焦到那个输入框，别让人困惑
+    var inp = document.getElementById('wo-in-' + ei + '-' + si + '-' + (st.w == null ? 'w' : 'r'));
+    if (inp && inp.focus) inp.focus();
+    return;
+  }
+  st.done = true;
+  st.doneAt = new Date().toISOString();
+  touchSession(woKey);
+
+  // 自动开计时：用本动作的休息时长
+  var P = PLAN[S.planType];
+  var pEx = P ? P.ex.filter(function (x) { return x.n === e.n; })[0] : null;
+  var secs = pEx ? parseRest(pEx.rest) : 90;
+  if (st.t !== 'w') woTimerStart(secs, e.name);   // 热身组之间不强制长休息
+
+  // 全部做完就自动跳到下一个动作
+  var allDone = e.sets.length > 0 && e.sets.every(function (x) { return x.done; });
+  if (allDone && ei + 1 < S.entries.length) {
+    setTimeout(function () { woCur = ei + 1; renderWorkout(woKey); }, 350);
+  } else {
+    renderWorkout(woKey);
+  }
+}
+function woUndoSet(ei, si) {
+  var S = store.sessions[woKey]; if (!S) return;
+  var e = S.entries[ei]; if (!e || !e.sets[si]) return;
+  delete e.sets[si].done; delete e.sets[si].doneAt;
+  touchSession(woKey);
+  renderWorkout(woKey);
+}
+function woCycleType(ei, si) {
+  var S = store.sessions[woKey]; if (!S) return;
+  var e = S.entries[ei]; if (!e || !e.sets[si]) return;
+  e.sets[si].t = (e.sets[si].t === 'w') ? 'n' : 'w';
+  touchSession(woKey);
+  renderWorkout(woKey);
+}
+function woInput(ei, si, field, val) {
+  var S = store.sessions[woKey]; if (!S) return;
+  var e = S.entries[ei]; if (!e || !e.sets[si]) return;
+  var n = parseFloat(val);
+  e.sets[si][field] = (val === '' || !isFinite(n)) ? null : (field === 'r' ? Math.round(n) : n);
+  touchSession(woKey);
+}
+function woAddSet(ei) {
+  var S = store.sessions[woKey]; if (!S) return;
+  var e = S.entries[ei]; if (!e) return;
+  var prev = null;
+  for (var i = e.sets.length - 1; i >= 0; i--) {
+    if (e.sets[i].w != null || e.sets[i].r != null) { prev = e.sets[i]; break; }
+  }
+  e.sets.push({ w: prev ? prev.w : null, r: prev ? prev.r : null, t: prev ? prev.t : 'n' });
+  touchSession(woKey);
+  renderWorkout(woKey);
+}
+function woDelSet(ei, si) {
+  var S = store.sessions[woKey]; if (!S) return;
+  var e = S.entries[ei]; if (!e) return;
+  e.sets.splice(si, 1);
+  touchSession(woKey);
+  renderWorkout(woKey);
+}
+function woNav(dir) {
+  var S = store.sessions[woKey]; if (!S) return;
+  var n = woCur + dir;
+  if (n < 0 || n >= S.entries.length) return;
+  woCur = n;
+  renderWorkout(woKey);
+}
+
+/* ── 训练时长 ── */
+function woElapsed(S) {
+  if (!S.startedAt) return 0;
+  var end = S.finishedAt ? Date.parse(S.finishedAt) : Date.now();
+  return Math.max(0, Math.round((end - Date.parse(S.startedAt)) / 1000));
+}
+
+/* ── 渲染 ── */
+function renderWorkout(dsKey) {
+  var S = store.sessions[dsKey]; if (!S) return;
+  var P = PLAN[S.planType];
+  var e = S.entries[woCur];
+  if (!e) { woFinish(); return; }
+  var pEx = P ? P.ex.filter(function (x) { return x.n === e.n; })[0] : null;
+  var last = lastSessionFor(e.name, dsKey);
+
+  var totalSets = 0, doneSets = 0;
+  S.entries.forEach(function (x) {
+    (x.sets || []).forEach(function (y) { totalSets++; if (y.done) doneSets++; });
+  });
+
+  var h = '<div class="ov-header"><div><div class="title">▶ 训练中</div>'
+    + '<div class="sub">' + dsKey + ' · ' + S.planType + '</div></div>'
+    + '<button class="close-btn" onclick="woFinish()">结束</button></div>';
+
+  h += '<div class="wo-bar"><span>用时 <b>' + woFmt(woElapsed(S)) + '</b></span>'
+    + '<span>进度 <b>' + doneSets + '/' + totalSets + ' 组</b></span></div>';
+
+  h += '<div class="ov-body">';
+
+  // 当前动作卡
+  h += '<div class="wo-card">';
+  h += '<div class="wo-nav"><button class="btn-xs" onclick="woNav(-1)"' + (woCur === 0 ? ' disabled' : '') + '>←</button>'
+    + '<span class="wo-idx">' + (woCur + 1) + ' / ' + S.entries.length + '</span>'
+    + '<button class="btn-xs" onclick="woNav(1)"' + (woCur === S.entries.length - 1 ? ' disabled' : '') + '>→</button></div>';
+  h += '<div class="wo-title">' + e.name + '</div>';
+  h += '<div class="wo-meta">'
+    + (last ? '上次 ' + fmtSets(last.sets) + ' · ' : '')
+    + (pEx ? pEx.wt + ' · ' + pEx.sr + (pEx.rir && pEx.rir !== '—' ? ' · ' + pEx.rir : '') + ' · 休息 ' + pEx.rest : '')
+    + '</div>';
+  h += '</div>';
+
+  // 组列表
+  h += '<div class="wo-sets">';
+  e.sets.forEach(function (st, si) {
+    var isNext = !st.done && e.sets.slice(0, si).every(function (x) { return x.done; });
+    h += '<div class="wo-set' + (st.done ? ' done' : '') + (isNext ? ' cur' : '') + '">';
+    h += '<span class="wo-si" onclick="woCycleType(' + woCur + ',' + si + ')" title="点击切换 正式/热身">'
+      + (st.t === 'w' ? '热' : (si + 1)) + '</span>';
+    h += '<input id="wo-in-' + woCur + '-' + si + '-w" class="rec-in' + (st.t === 'w' ? ' warm' : '') + '" type="number" inputmode="decimal" step="0.5" value="' + inVal(st.w) + '" placeholder="kg" oninput="woInput(' + woCur + ',' + si + ',\'w\',this.value)">';
+    h += '<span class="rec-u">kg</span>';
+    h += '<input id="wo-in-' + woCur + '-' + si + '-r" class="rec-in rec-in-r' + (st.t === 'w' ? ' warm' : '') + '" type="number" inputmode="numeric" value="' + inVal(st.r) + '" placeholder="次" oninput="woInput(' + woCur + ',' + si + ',\'r\',this.value)">';
+    h += '<span class="rec-u">次</span>';
+    h += st.done
+      ? '<button class="wo-ck on" onclick="woUndoSet(' + woCur + ',' + si + ')">✓</button>'
+      : '<button class="wo-ck" onclick="woCompleteSet(' + woCur + ',' + si + ')">完成</button>';
+    h += '<button class="rec-del" onclick="woDelSet(' + woCur + ',' + si + ')">✕</button>';
+    h += '</div>';
+  });
+  h += '<button class="rec-add" onclick="woAddSet(' + woCur + ')">+ 加一组</button>';
+  h += '</div>';
+
+  // 备注
+  h += '<div class="rec-note-wrap"><textarea class="rec-note" rows="2" placeholder="备注（状态、肩有没有响…）" oninput="woNote(this.value)">' + esc(S.note || '') + '</textarea></div>';
+
+  h += '</div>';
+
+  // 底部固定操作条
+  h += '<div class="wo-foot">'
+    + '<button class="btn-xs" onclick="woNav(-1)"' + (woCur === 0 ? ' disabled' : '') + '>← 上一个</button>'
+    + '<button class="btn-rec" style="flex:1" onclick="woFinish()">完成训练</button>'
+    + '<button class="btn-xs" onclick="woNav(1)"' + (woCur === S.entries.length - 1 ? ' disabled' : '') + '>下一个 →</button>'
+    + '</div>';
+
+  renderMain(h);
+  woTimerPaint();   // 若计时器在跑，重新挂上
+}
+
+function woNote(val) {
+  var S = store.sessions[woKey]; if (!S) return;
+  S.note = val; touchSession(woKey);
+}
+
+woTimerLoad();
+if (_woTick) clearInterval(_woTick);
+if (woTimerActive()) _woTick = setInterval(woTimerPaint, 250);
+
+/* ══════════════════════════════════════════════════════════════════
  * 训练中枢 · 渲染逻辑
  * ------------------------------------------------------------------
  * 数据结构见 data.public.js 与 data.private.js。
@@ -1064,7 +1429,7 @@ function teaSection(ptype,dsKey){
   const tl=getTcm(dsKey);
   let h='<div class="layer"><div class="layer-h" onclick="toggleLayer(this)"><span class="icon">🍵</span>茶饮调理<span class="arrow">▼</span></div><div class="layer-b">';
   h+='<div class="tea-base">'+t.f+'</div>';
-  if(tl)h+='<div class="tea-adj">⚡ 今日调整：'+tl.tea_extra+'</div>';
+  if(tl&&tl.tea_extra)h+='<div class="tea-adj">⚡ 今日调整：'+tl.tea_extra+'</div>';
   h+='<div class="tea-special">'+t.s+'</div>';
   t.n.forEach(n=>h+='<div class="tea-note">⭐ '+n+'</div>');
   h+='</div></div>';
@@ -1138,9 +1503,14 @@ function inVal(v){return (v===null||v===undefined)?'':v;}
 function recButton(dsKey,ptype){
   var P=PLAN[ptype];
   if(!P||!P.ex||!P.ex.length)return'';
-  var has=!!store.sessions[dsKey];
-  return '<div class="rec-cta"><button class="btn-rec'+(has?' btn-rec-edit':'')+'" onclick="showRec(\''+dsKey+'\')">'
-    +(has?'✏️ 编辑本次记录':'📝 记录训练')+'</button></div>';
+  var S=store.sessions[dsKey];
+  var has=!!(S&&S.entries);
+  var q="\u0027";
+  return '<div class="rec-cta">'
+    +'<button class="btn-rec" onclick="startWorkout('+q+dsKey+q+')">\u25b6 开始训练</button>'
+    +'<button class="btn-xs" style="width:100%;margin-top:6px;padding:9px" onclick="showRec('+q+dsKey+q+')">'
+      +(has?'\u270f\ufe0f 编辑记录':'\ud83d\udcdd 手动记录')+'</button>'
+    +'</div>';
 }
 
 /** 建立（或取回）某天的草稿。新建时用「上次同动作」的数据预填，没有历史就用计划目标。 */
@@ -1212,7 +1582,7 @@ function recRender(dsKey){
     h+='</div></div>';
   });
   h+='</div>';
-  h+='<div class="rec-note-wrap"><textarea class="rec-note" rows="2" placeholder="备注（状态、肩有没有响、哪里不舒服…）" oninput="recNote(this.value)">'+(S.note||'')+'</textarea></div>';
+  h+='<div class="rec-note-wrap"><textarea class="rec-note" rows="2" placeholder="备注（状态、肩有没有响、哪里不舒服…）" oninput="recNote(this.value)">'+esc(S.note||'')+'</textarea></div>';
   h+='<div class="rec-foot">'
     +'<button class="btn-rec" onclick="recFinish(\''+dsKey+'\')">✓ 完成</button>'
     +'<button class="btn-xs btn-danger" onclick="recDelete(\''+dsKey+'\')">删除本次</button>'
