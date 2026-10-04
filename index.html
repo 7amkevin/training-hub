@@ -245,6 +245,24 @@ a{color:var(--pp);text-decoration:none}
 @keyframes woflash{from{opacity:0}to{opacity:1}}
 .wo-alert-in{text-align:center;font-size:2rem;font-weight:700;color:var(--gn);line-height:1.5}
 .wo-alert-in span{display:block;font-size:.85rem;font-weight:400;color:var(--t);margin-top:8px}
+
+
+/* ═══════ 提示音选择 ═══════ */
+.snd-list{padding:0 12px}
+.snd-row{display:flex;align-items:center;gap:8px;padding:11px 12px;border:1px solid var(--b);border-radius:8px;margin-bottom:7px;background:var(--c1);cursor:pointer}
+.snd-row.on{border-color:var(--gl);background:rgba(200,150,64,.08)}
+.snd-main{flex:1 1 auto;min-width:0}
+.snd-main b{display:block;font-size:.85rem;color:var(--t)}
+.snd-main span{display:block;font-size:.62rem;color:var(--d);margin-top:2px}
+.snd-ck{flex:0 0 auto;color:var(--gl);font-weight:700;padding-left:2px}
+.snd-note{margin:14px 12px 0;padding:12px 0 0;border-top:1px solid var(--b);font-size:.66rem;color:var(--d);line-height:1.7}
+.snd-note b{color:var(--t)}
+
+/* 到点提醒：重复闪 */
+.wo-alert.ping{animation:woping .5s ease-out}
+@keyframes woping{0%{background:rgba(80,160,96,.55)}100%{background:rgba(10,30,14,.88)}}
+.wo-alert-ok{display:block;margin:22px auto 0;font:inherit;font-size:.9rem;font-weight:600;padding:12px 40px;border-radius:10px;border:1px solid var(--gn);background:rgba(80,160,96,.15);color:var(--gn);cursor:pointer}
+.wo-alert-ok:active{background:rgba(80,160,96,.3)}
 </style>
 </head>
 <body>
@@ -988,26 +1006,57 @@ function woAudioUnlock() {
   } catch (e) { return null; }
 }
 
-function woBeep(times) {
-  times = times || 1;
+/* 可选提示音 —— 用 Web Audio 现场合成，不需要任何音频文件 */
+var WO_SOUNDS = {
+  ding:     { name: '叮',   desc: '单声，清脆（默认）', tones: [{ f: 880,  off: 0,    d: 0.30, type: 'sine' }] },
+  dingdong: { name: '叮咚', desc: '两声，下行，柔和',   tones: [{ f: 988, off: 0,    d: 0.20, type: 'sine' },
+                                                             { f: 740, off: 0.20, d: 0.40, type: 'sine' }] },
+  beep:     { name: '哔哔', desc: '方波，尖锐，嘈杂环境更易听见', tones: [{ f: 1200, off: 0,    d: 0.13, type: 'square' },
+                                                                       { f: 1200, off: 0.20, d: 0.13, type: 'square' }] },
+  chime:    { name: '长鸣', desc: '一声长音，最不容易漏',  tones: [{ f: 660,  off: 0,    d: 1.20, type: 'triangle' }] },
+  none:     { name: '静音', desc: '只闪屏不发声',         tones: [] }
+};
+var LS_SOUND = 'zx.sound.v1';
+
+function woSoundGet() {
+  var v = null;
+  try { v = _ls.getItem(LS_SOUND); } catch (e) {}
+  return (v && WO_SOUNDS[v]) ? v : 'ding';
+}
+function woSoundSet(id) {
+  if (!WO_SOUNDS[id]) return;
+  try { _ls.setItem(LS_SOUND, id); } catch (e) {}
+}
+
+/** 播放指定提示音，repeat 次（每次之间间隔 0.35 秒） */
+function woPlay(id, repeat) {
+  var snd = WO_SOUNDS[id || woSoundGet()] || WO_SOUNDS.ding;
+  if (!snd.tones.length) return;
   var ctx = _woAudio || woAudioUnlock();
-  if (ctx) {
-    try {
-      if (ctx.state === 'suspended' && ctx.resume) ctx.resume();
-      for (var i = 0; i < times; i++) {
-        var t0 = ctx.currentTime + i * 0.3;
+  if (!ctx) return;
+  try {
+    if (ctx.state === 'suspended' && ctx.resume) ctx.resume();
+    for (var r = 0; r < (repeat || 1); r++) {
+      for (var i = 0; i < snd.tones.length; i++) {
+        var t = snd.tones[i];
+        var t0 = ctx.currentTime + r * 0.35 + t.off;
         var o = ctx.createOscillator(), g = ctx.createGain();
         o.connect(g); g.connect(ctx.destination);
-        o.type = 'sine';
-        o.frequency.setValueAtTime(880, t0);
+        o.type = t.type;
+        o.frequency.setValueAtTime(t.f, t0);
         g.gain.setValueAtTime(0.0001, t0);
         g.gain.exponentialRampToValueAtTime(0.5, t0 + 0.02);
-        g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.28);
-        o.start(t0); o.stop(t0 + 0.3);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + t.d);
+        o.start(t0); o.stop(t0 + t.d + 0.02);
       }
-    } catch (e) { /* 忽略 */ }
-  }
-  try { if (navigator.vibrate) navigator.vibrate([240, 100, 240, 100, 240]); } catch (e) { /* iOS 无此 API */ }
+    }
+  } catch (e) { /* 忽略 */ }
+}
+
+/** 到点提示：声音 + 震动（震动仅安卓有效） */
+function woBeep(times) {
+  woPlay(woSoundGet(), times || 1);
+  try { if (navigator.vibrate) navigator.vibrate([240, 100, 240, 100, 240]); } catch (e) {}
 }
 
 /** 5 秒测试计时 —— 不用真的等 3 分钟就能验证「计时结束 → 响铃 + 闪烁」整条路径 */
@@ -1017,6 +1066,80 @@ function woTestTimer() {
 }
 
 /** 手动试听 —— 让你在训练前确认声音真的会响 */
+/* ── 系统通知 ──────────────────────────────────────────────────
+ * 能做：到点时如果页面还活着，弹一条系统通知（看别的 App 也能看到）
+ * 做不到：iOS 在页面被挂起后不再执行任何 JS ——
+ *         锁屏 / 切走超过约 30 秒后，到点不会有任何回调，
+ *         因此也就没有通知可发。真正「锁屏也能响」需要
+ *         服务器端在精确时刻主动推送，见 PRD 的说明。
+ */
+function woNotifyPerm() {
+  try {
+    if (typeof Notification === 'undefined') return 'unsupported';
+    return Notification.permission;
+  } catch (e) { return 'unsupported'; }
+}
+
+function woNotifyAsk() {
+  try {
+    if (typeof Notification === 'undefined') return Promise.resolve(false);
+    if (Notification.permission === 'granted') return Promise.resolve(true);
+    if (Notification.permission === 'denied') return Promise.resolve(false);
+    return Notification.requestPermission().then(function (r) { return r === 'granted'; });
+  } catch (e) { return Promise.resolve(false); }
+}
+
+function woNotify(title, body) {
+  try {
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+    var opts = { body: body, tag: 'zx-rest', renotify: true, icon: 'icon-192.png', badge: 'icon-192.png' };
+    // iOS 只认 Service Worker 发出的通知，new Notification() 无效
+    if (typeof navigator !== 'undefined' && navigator.serviceWorker && navigator.serviceWorker.ready) {
+      navigator.serviceWorker.ready.then(function (reg) {
+        try { reg.showNotification(title, opts); }
+        catch (e) { try { new Notification(title, opts); } catch (e2) {} }
+      }).catch(function () { try { new Notification(title, opts); } catch (e) {} });
+    } else {
+      new Notification(title, opts);
+    }
+  } catch (e) { /* 忽略 */ }
+}
+
+function showSoundPicker() {
+  var cur = woSoundGet();
+  var h = '<div class="ov-header"><div><div class="title">🔔 提示音</div>'
+    + '<div class="sub">选一个在健身房听得见的</div></div>'
+    + '<button class="close-btn" onclick="renderWorkout(woKey)">✕</button></div>';
+  h += '<div class="ov-body"><div class="snd-list">';
+  Object.keys(WO_SOUNDS).forEach(function (id) {
+    var snd = WO_SOUNDS[id];
+    h += '<div class="snd-row' + (id === cur ? ' on' : '') + '" onclick="woSoundPick(\'' + id + '\')">'
+      + '<div class="snd-main"><b>' + snd.name + '</b><span>' + snd.desc + '</span></div>'
+      + '<button class="btn-xs" onclick="event.stopPropagation();woAudioUnlock();woPlay(\'' + id + '\',1)">试听</button>'
+      + (id === cur ? '<span class="snd-ck">✓</span>' : '')
+      + '</div>';
+  });
+  h += '</div>';
+  var perm = woNotifyPerm();
+  var permText = perm === 'granted' ? '✅ 已开启'
+    : perm === 'denied' ? '⛔ 已被拒绝（需到浏览器设置里改）'
+    : perm === 'unsupported' ? '— 此浏览器不支持'
+    : '未开启（开始训练时会询问）';
+  h += '<div class="snd-note"><b>系统通知：' + permText + '</b><br>'
+    + '到点时如果页面还在运行，会额外弹一条系统通知。<br><br>'
+    + '<b>说明：</b>iPhone 在页面被挂起后不再执行任何代码，所以锁屏或切走超过约 30 秒后，'
+    + '到点不会有提示 —— 这是浏览器层面的限制，不是 App 的问题。</div>';
+  h += '</div>';
+  renderMain(h);
+}
+
+function woSoundPick(id) {
+  woSoundSet(id);
+  woAudioUnlock();
+  woPlay(id, 1);
+  showSoundPicker();
+}
+
 function woTestSound() {
   woAudioUnlock();
   woBeep(1);
@@ -1050,6 +1173,7 @@ function startWorkout(dsKey) {
   }
   woWakeOn();
   woAudioUnlock();          // ← 必须在用户点击的这一刻解锁，否则 iOS 计时结束时不会响
+  woNotifyAsk();            // ← 通知权限同样必须在这里申请
   renderWorkout(dsKey);
 }
 
@@ -1096,9 +1220,10 @@ function woTimerPaint() {
   if (!woTimer.endsAt) { if (el) el.remove(); return; }
   var left = woTimerLeft();
   if (left <= 0) {
-    woBeep(3);
+    woBeep(2);
     woTimerStop();
     woAlert();
+    woNotify('休息结束', '该下一组了');
     return;
   }
   if (!el) {
@@ -1120,7 +1245,36 @@ function woTimerPaint() {
 }
 
 /** 计时结束的视觉兜底 —— iPhone 没有震动，声音又可能被静音，所以必须看得见 */
+/* 到点提醒：重复响 + 闪，直到用户点「知道了」
+ * 为什么要重复 —— iPhone 没有震动，手机又可能静音，
+ * 单次提示很容易被错过；重复 + 必须手动关闭才可靠。 */
+var _woAlertTimer = null, _woAlertCount = 0;
+var WO_ALERT_MAX = 12;      // 最多重复 12 次（约 48 秒）后自动停
+
 function woAlert() {
+  _woAlertCount = 0;
+  woAlertPaint();
+  if (_woAlertTimer) clearInterval(_woAlertTimer);
+  _woAlertTimer = setInterval(function () {
+    _woAlertCount++;
+    if (_woAlertCount >= WO_ALERT_MAX) { woAlertDismiss(); return; }
+    woTimerPing();
+  }, 4000);
+}
+
+/** 重复提醒的每一次：响一声 + 闪一下 */
+function woTimerPing() {
+  woPlay(woSoundGet(), 1);
+  var el = document.getElementById('woAlert');
+  if (el && el.classList) {
+    el.classList.remove('ping');
+    // 触发重绘让动画重放
+    void (el.offsetWidth);
+    el.classList.add('ping');
+  }
+}
+
+function woAlertPaint() {
   var el = document.getElementById('woAlert');
   if (!el && typeof document !== 'undefined' && document.createElement) {
     el = document.createElement('div');
@@ -1129,11 +1283,15 @@ function woAlert() {
     if (document.body) document.body.appendChild(el);
   }
   if (!el) return;
-  el.innerHTML = '<div class="wo-alert-in">✅ 休息结束<span>该下一组了</span></div>';
-  if (el.remove) setTimeout(function () {
-    var e2 = document.getElementById('woAlert');
-    if (e2 && e2.remove) e2.remove();
-  }, 2600);
+  el.innerHTML = '<div class="wo-alert-in">✅ 休息结束'
+    + '<span>该下一组了</span>'
+    + '<button class="wo-alert-ok" onclick="woAlertDismiss()">知道了</button></div>';
+}
+
+function woAlertDismiss() {
+  if (_woAlertTimer) { clearInterval(_woAlertTimer); _woAlertTimer = null; }
+  var el = document.getElementById('woAlert');
+  if (el && el.remove) el.remove();
 }
 
 /* ── 组的操作 ── */
@@ -1255,7 +1413,7 @@ function renderWorkout(dsKey) {
   h += '<div class="wo-bar"><span>用时 <b>' + woFmt(woElapsed(S)) + '</b></span>'
     + '<span>进度 <b>' + doneSets + '/' + totalSets + ' 组</b></span>'
     + '<button class="btn-xs" onclick="woTestTimer()">⏱ 测 5 秒</button>'
-    + '<button class="btn-xs" onclick="woTestSound()">🔔 试听</button></div>'
+    + '<button class="btn-xs" onclick="showSoundPicker()">🔔 提示音</button></div>'
     + '<div class="wo-sndmsg" id="woSoundMsg"></div>';
 
   h += '<div class="ov-body">';
@@ -1319,7 +1477,11 @@ function woNote(val) {
 
 if (typeof document !== 'undefined' && document.addEventListener) {
   document.addEventListener('visibilitychange', function () {
-    if (!document.hidden && woKey) woWakeOn();
+    if (!document.hidden && woKey) {
+      woWakeOn();
+      // 后台被挂起期间错过的到点提醒，回前台立刻补上
+      if (woTimer.endsAt && woTimerLeft() <= 0) { woBeep(2); woTimerStop(); woAlert(); woNotify('休息结束', '该下一组了'); }
+    }
   });
 }
 
