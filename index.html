@@ -178,6 +178,21 @@ a{color:var(--pp);text-decoration:none}
 .rec-foot .btn-rec{flex:1 1 auto;width:auto}
 .rec-stat{padding:6px 16px 2px;font-size:.66rem;color:var(--gl)}
 .rec-notetext{padding:2px 16px 6px;font-size:.72rem;color:var(--t);line-height:1.5}
+
+
+/* ═══════ 账号与同步 ═══════ */
+.acc-box{padding:10px 16px 16px}
+.acc-label{display:block;font-size:.66rem;color:var(--d);margin:10px 0 4px}
+.acc-in{width:100%;box-sizing:border-box;font:inherit;font-size:.85rem;padding:10px;border-radius:8px;border:1px solid var(--b);background:#0a0b0e;color:var(--t)}
+.acc-in:focus{outline:none;border-color:var(--gl)}
+.acc-msg{min-height:1.2em;font-size:.72rem;padding:8px 0 2px;color:var(--d)}
+.acc-msg.err{color:var(--rd)}
+.acc-msg.ok{color:var(--gn)}
+.acc-note{font-size:.66rem;color:var(--d);line-height:1.6;padding:12px 0 0;border-top:1px solid var(--b);margin-top:14px}
+.acc-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--b);font-size:.76rem;color:var(--d)}
+.acc-row b{color:var(--t);font-weight:600}
+.acc-err{font-size:.68rem;color:var(--rd);padding:8px 0;word-break:break-all}
+.acc-err:empty{display:none}
 </style>
 </head>
 <body>
@@ -201,6 +216,25 @@ a{color:var(--pp);text-decoration:none}
 </div>
 
 <script>/* ══════════════════════════════════════════════════════════════════
+ * 训练中枢 · 后端配置
+ * ------------------------------------------------------------------
+ * ⚠️ 这里的 anon key 是**设计上就要放在前端**的公开密钥 —— 可以进仓库。
+ *    真正的保护是数据库的行级安全策略（见 db/001_init.sql），
+ *    它保证每个人只能读写自己的数据。
+ *
+ * 🔴 绝对不要把 service_role key 放到这里 —— 那是万能钥匙。
+ *
+ * 将来若要迁到别的后端（Cloudflare / 国内云），只改本文件与 sync.js。
+ * ══════════════════════════════════════════════════════════════════ */
+
+const SUPABASE_URL = 'https://ohbqbdfujtwwykypmszv.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9oYnFiZGZ1anR3d3lreXBtc3p2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTExMTMzNTYsImV4cCI6MjEwNjY4OTM1Nn0.15eVjG_MhGgC8QKNrGpS6acYqGu7RRvE--hb8XLM39M';
+
+/* 本地缓存的键名（与 store.js 的 LS_KEY 区分开） */
+const LS_AUTH = 'zx.auth.v1';
+const LS_SYNC = 'zx.sync.v1';
+
+/* ══════════════════════════════════════════════════════════════════
  * 训练中枢 · 公开内容层
  * ------------------------------------------------------------------
  * ✅ 这一层会随 index.html 发布到公网 —— 里面不能有任何个人数据。
@@ -468,16 +502,18 @@ function saveStore() {
 /* ── 查询 ────────────────────────────────────────────────────────── */
 
 /** 某天是否有记录（新录入或历史存档） */
-function hasLog(dsKey) { return !!(store.sessions[dsKey] || LOGS[dsKey]); }
+function isDeleted(v) { return !!(v && v.deletedAt); }
+
+function hasLog(dsKey) { return !!(getSession(dsKey) || LOGS[dsKey]); }
 
 /** 取某天的新格式记录（没有则 null） */
-function getSession(dsKey) { return store.sessions[dsKey] || null; }
+function getSession(dsKey) { var v = store.sessions[dsKey]; return (v && !v.deletedAt) ? v : null; }
 
 /** 全部记录合并视图：新录入优先，历史存档兜底 */
 function allSessions() {
   var out = {};
   Object.keys(LOGS || {}).forEach(function (k) { out[k] = LOGS[k]; });
-  Object.keys(store.sessions).forEach(function (k) { out[k] = store.sessions[k]; });
+  Object.keys(store.sessions).forEach(function (k) { if (!isDeleted(store.sessions[k])) out[k] = store.sessions[k]; });
   return out;
 }
 
@@ -524,6 +560,251 @@ function lastSessionFor(name, beforeKey) {
 
 /** 某天的记录是否是新录入的（可编辑），还是历史存档（只读） */
 function isEditable(dsKey) { return !!store.sessions[dsKey]; }
+
+/* ══════════════════════════════════════════════════════════════════
+ * 训练中枢 · 后端同步层
+ * ------------------------------------------------------------------
+ * ⚠️ 这是**唯一**直接接触后端的文件。
+ *    app.js 只知道「当前用户是谁」和「现在同不同步」，不知道背后是谁。
+ *    将来迁到 Cloudflare / 国内云，只改本文件 + config.js。
+ *
+ * 设计要点：
+ *   1. 本地优先 —— 后端连不上时 App 照常能用，数据先落本机
+ *   2. 增量拉取 —— 用服务端 synced_at 做水位线，客户端时钟不准也不漏
+ *   3. 先拉后推 —— 合并（同 key 取 updated_at 较新者）后只推脏数据
+ *   4. 全程 try/catch —— 任何网络错误都不能让页面崩
+ * ══════════════════════════════════════════════════════════════════ */
+
+var _fetch = (typeof fetch === 'function') ? fetch.bind(typeof window !== 'undefined' ? window : globalThis) : null;
+
+var _syncMem = {};
+var _syncLs = (typeof localStorage !== 'undefined' && localStorage) ? localStorage : {
+  getItem: function (k) { return Object.prototype.hasOwnProperty.call(_syncMem, k) ? _syncMem[k] : null; },
+  setItem: function (k, v) { _syncMem[k] = String(v); },
+  removeItem: function (k) { delete _syncMem[k]; }
+};
+
+// ── 状态 ──────────────────────────────────────────────────────────
+
+var auth = { user: null, token: null, refresh: null, exp: 0 };
+var syncState = { lastPulledAt: null, dirty: {} };
+var syncStatus = 'idle';   // idle | syncing | ok | error | offline | noauth
+var syncError = '';
+var syncLastAt = null;
+
+function authRestore() {
+  try {
+    var o = JSON.parse(_syncLs.getItem(LS_AUTH) || 'null');
+    if (o && o.token) auth = o;
+  } catch (e) { /* 忽略 */ }
+  try {
+    var s = JSON.parse(_syncLs.getItem(LS_SYNC) || 'null');
+    if (s) { syncState.lastPulledAt = s.lastPulledAt || null; syncState.dirty = s.dirty || {}; }
+  } catch (e) { /* 忽略 */ }
+}
+function authPersist() {
+  try { _syncLs.setItem(LS_AUTH, JSON.stringify(auth)); } catch (e) { /* 忽略 */ }
+}
+function authClear() {
+  auth = { user: null, token: null, refresh: null, exp: 0 };
+  try { _syncLs.removeItem(LS_AUTH); } catch (e) { /* 忽略 */ }
+}
+function syncPersist() {
+  try { _syncLs.setItem(LS_SYNC, JSON.stringify(syncState)); } catch (e) { /* 忽略 */ }
+}
+function isLoggedIn() { return !!(auth.user && auth.token); }
+function markDirty(kind, date) { syncState.dirty[kind + ':' + date] = 1; syncPersist(); }
+
+// ── HTTP 封装 ─────────────────────────────────────────────────────
+
+async function sbFetch(path, opts) {
+  opts = opts || {};
+  if (!_fetch) throw new Error('当前环境不支持网络请求');
+  var headers = {
+    'apikey': SUPABASE_ANON_KEY,
+    'Content-Type': 'application/json'
+  };
+  if (opts.auth !== false && auth.token) headers['Authorization'] = 'Bearer ' + auth.token;
+  else headers['Authorization'] = 'Bearer ' + SUPABASE_ANON_KEY;
+  if (opts.headers) Object.keys(opts.headers).forEach(function (k) { headers[k] = opts.headers[k]; });
+
+  var res = await _fetch(SUPABASE_URL + path, {
+    method: opts.method || 'GET',
+    headers: headers,
+    body: opts.body ? JSON.stringify(opts.body) : undefined
+  });
+  var text = await res.text();
+  var json = null;
+  try { json = text ? JSON.parse(text) : null; } catch (e) { json = null; }
+  if (!res.ok) {
+    var msg = (json && (json.msg || json.message || json.error_description || json.error)) || text || ('HTTP ' + res.status);
+    var err = new Error(String(msg).slice(0, 300));
+    err.status = res.status;
+    throw err;
+  }
+  return { json: json, headers: res.headers };
+}
+
+// ── 认证 ──────────────────────────────────────────────────────────
+
+async function sbSignUp(email, password) {
+  var r = await sbFetch('/auth/v1/signup', { method: 'POST', auth: false, body: { email: email, password: password } });
+  // 若项目开启了邮箱确认，这里拿不到 token，只能算「注册成功待确认」
+  if (r.json && r.json.access_token) { adoptSession(r.json); return { ok: true, needConfirm: false }; }
+  return { ok: true, needConfirm: true };
+}
+
+async function sbSignIn(email, password) {
+  var r = await sbFetch('/auth/v1/token?grant_type=password', { method: 'POST', auth: false, body: { email: email, password: password } });
+  adoptSession(r.json);
+  return { ok: true };
+}
+
+async function sbRefresh() {
+  if (!auth.refresh) throw new Error('没有刷新令牌');
+  var r = await sbFetch('/auth/v1/token?grant_type=refresh_token', { method: 'POST', auth: false, body: { refresh_token: auth.refresh } });
+  adoptSession(r.json);
+}
+
+function adoptSession(j) {
+  if (!j || !j.access_token) throw new Error('登录响应里没有 access_token');
+  auth.token = j.access_token;
+  auth.refresh = j.refresh_token || auth.refresh;
+  auth.user = j.user || auth.user;
+  auth.exp = j.expires_at || (Math.floor(Date.now() / 1000) + (j.expires_in || 3600));
+  authPersist();
+}
+
+async function sbSignOut() {
+  try { await sbFetch('/auth/v1/logout', { method: 'POST' }); } catch (e) { /* 本地照样清 */ }
+  authClear();
+  syncStatus = 'noauth';
+}
+
+async function ensureFreshToken() {
+  if (!auth.token) return false;
+  if (auth.exp && (auth.exp * 1000 - Date.now()) < 120000) {
+    try { await sbRefresh(); } catch (e) { authClear(); return false; }
+  }
+  return true;
+}
+
+// ── 本地 ⇄ 远端 数据映射 ──────────────────────────────────────────
+
+/** 把本地 store 摊平成服务端的行格式 */
+function localRecords() {
+  var out = [];
+  var groups = [['session', store.sessions], ['measure', store.measures], ['tcm', store.tcm]];
+  groups.forEach(function (g) {
+    var kind = g[0], obj = g[1] || {};
+    Object.keys(obj).forEach(function (date) {
+      var v = obj[date];
+      out.push({
+        kind: kind,
+        date: date,
+        data: v,
+        updated_at: (v && v.updatedAt) || new Date().toISOString(),
+        deleted_at: (v && v.deletedAt) || null
+      });
+    });
+  });
+  return out;
+}
+
+/** 把服务端返回的行写回本地 store */
+function applyRemote(rows) {
+  (rows || []).forEach(function (row) {
+    var bucket = row.kind === 'session' ? store.sessions
+               : row.kind === 'measure' ? store.measures
+               : row.kind === 'tcm'     ? store.tcm
+               : null;
+    if (!bucket) return;
+    var local = bucket[row.date];
+    var localAt = local && local.updatedAt ? Date.parse(local.updatedAt) : 0;
+    var remoteAt = row.updated_at ? Date.parse(row.updated_at) : 0;
+
+    if (row.deleted_at) {
+      // 远端已删除：本地没有更新的改动就跟着删
+      if (!local || localAt <= remoteAt) delete bucket[row.date];
+      return;
+    }
+    // 后写胜：远端更新才覆盖
+    if (!local || remoteAt >= localAt) bucket[row.date] = row.data;
+  });
+}
+
+// ── 同步主流程 ────────────────────────────────────────────────────
+
+async function syncNow(opts) {
+  opts = opts || {};
+  if (!isLoggedIn()) { syncStatus = 'noauth'; return { ok: false, reason: 'noauth' }; }
+  if (syncStatus === 'syncing') return { ok: false, reason: 'busy' };
+  if (!_fetch) { syncStatus = 'error'; syncError = '环境不支持网络'; return { ok: false, reason: 'nofetch' }; }
+
+  syncStatus = 'syncing'; syncError = '';
+  if (typeof refreshSyncUI === 'function') refreshSyncUI();
+
+  try {
+    if (!(await ensureFreshToken())) { syncStatus = 'noauth'; if (typeof refreshSyncUI === 'function') refreshSyncUI(); return { ok: false, reason: 'noauth' }; }
+
+    // ① 先拉：只取服务端 synced_at 水位线之后变化的行
+    var pulled = 0;
+    if (syncState.lastPulledAt) {
+      var q = '/rest/v1/records?select=*&synced_at=gt.' + encodeURIComponent(syncState.lastPulledAt) + '&order=synced_at.asc&limit=2000';
+      var r = await sbFetch(q);
+      var rows = r.json || [];
+      if (rows.length) { applyRemote(rows); pulled = rows.length; }
+      var maxSynced = rows.reduce(function (a, x) { return (x.synced_at && x.synced_at > a) ? x.synced_at : a; }, syncState.lastPulledAt);
+      var serverDate = r.headers && r.headers.get ? r.headers.get('date') : null;
+      syncState.lastPulledAt = maxSynced || (serverDate ? new Date(serverDate).toISOString() : new Date().toISOString());
+    } else {
+      // 首次：全量
+      var r0 = await sbFetch('/rest/v1/records?select=*&order=synced_at.asc&limit=5000');
+      var rows0 = r0.json || [];
+      if (rows0.length) { applyRemote(rows0); pulled = rows0.length; }
+      var serverDate0 = r0.headers && r0.headers.get ? r0.headers.get('date') : null;
+      syncState.lastPulledAt = rows0.length
+        ? rows0.reduce(function (a, x) { return (x.synced_at && x.synced_at > a) ? x.synced_at : a; }, '')
+        : (serverDate0 ? new Date(serverDate0).toISOString() : new Date().toISOString());
+    }
+
+    // ② 后推：合并完成后再上传，避免旧数据覆盖新数据
+    var all = localRecords();
+    var dirtyKeys = Object.keys(syncState.dirty);
+    var toPush = dirtyKeys.length
+      ? all.filter(function (rec) { return syncState.dirty[rec.kind + ':' + rec.date]; })
+      : [];
+
+    if (toPush.length) {
+      var payload = toPush.map(function (rec) {
+        return { user_id: auth.user.id, kind: rec.kind, date: rec.date, data: rec.data,
+                 updated_at: rec.updated_at, deleted_at: rec.deleted_at };
+      });
+      await sbFetch('/rest/v1/records?on_conflict=user_id,kind,date', {
+        method: 'POST',
+        headers: { 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+        body: payload
+      });
+      syncState.dirty = {};
+    }
+
+    syncPersist();
+    saveStore();
+    syncStatus = 'ok'; syncLastAt = new Date().toISOString();
+    if (typeof refreshSyncUI === 'function') refreshSyncUI();
+    if (typeof renderCalendar === 'function') renderCalendar();
+    return { ok: true, pulled: pulled, pushed: toPush.length };
+  } catch (e) {
+    var msg = (e && e.message) ? e.message : String(e);
+    syncError = msg;
+    syncStatus = /Failed to fetch|NetworkError|Load failed|network/i.test(msg) ? 'offline' : 'error';
+    if (typeof refreshSyncUI === 'function') refreshSyncUI();
+    return { ok: false, reason: 'error', message: msg };
+  }
+}
+
+authRestore();
+if (!isLoggedIn()) syncStatus = 'noauth';
 
 /* ══════════════════════════════════════════════════════════════════
  * 训练中枢 · 渲染逻辑
@@ -589,8 +870,9 @@ function renderCalendar(){
     h+='</div>';
   }
   h+='</div>';
-  h+='<div class="cal-tools"><button class="btn-xs" onclick="exportData()">⬇ 导出数据</button>'
-    +'<button class="btn-xs" onclick="document.getElementById(\'importFile\').click()">⬆ 导入数据</button>'
+  h+='<div class="cal-tools"><button class="btn-xs" id="syncBtn" onclick="showAccount()">'+syncLabel()+'</button></div>';
+  h+='<div class="cal-tools"><button class="btn-xs" onclick="exportData()">⬇ 导出</button>'
+    +'<button class="btn-xs" onclick="document.getElementById(\'importFile\').click()">⬆ 导入</button>'
     +'<input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)"></div>';
   document.getElementById('calContainer').innerHTML=h;
   document.getElementById('todayLabel').textContent='今天 '+ts;
@@ -774,6 +1056,7 @@ function closeView(){
 // INIT
 // ═══════════════════════════════════════════
 renderCalendar();
+syncBootstrap();
 
 
 // ═══════════════════════════════════════════
@@ -894,8 +1177,7 @@ function recInput(ei,si,field,val){
   var e=S.entries[ei];if(!e||!e.sets[si])return;
   var n=parseFloat(val);
   e.sets[si][field]=(val===''||!isFinite(n))?null:(field==='r'?Math.round(n):n);
-  S.updatedAt=new Date().toISOString();
-  saveStore();
+  touchSession(recCurKey);
 }
 
 function recAddSet(ei){
@@ -907,21 +1189,19 @@ function recAddSet(ei){
   }
   if(!prev)prev=e.sets[e.sets.length-1]||{w:null,r:null};
   e.sets.push({w:prev.w,r:prev.r});
-  S.updatedAt=new Date().toISOString();
-  saveStore();recRender(recCurKey);
+  touchSession(recCurKey);recRender(recCurKey);
 }
 
 function recDelSet(ei,si){
   var S=store.sessions[recCurKey];if(!S)return;
   var e=S.entries[ei];if(!e)return;
   e.sets.splice(si,1);
-  S.updatedAt=new Date().toISOString();
-  saveStore();recRender(recCurKey);
+  touchSession(recCurKey);recRender(recCurKey);
 }
 
 function recNote(val){
   var S=store.sessions[recCurKey];if(!S)return;
-  S.note=val;S.updatedAt=new Date().toISOString();saveStore();
+  S.note=val;touchSession(recCurKey);
 }
 
 function recFinish(dsKey){
@@ -931,16 +1211,24 @@ function recFinish(dsKey){
   });
   var done=S.entries.filter(function(e){return e.sets.length;}).length;
   S.summary={done:done+'/'+S.entries.length};
-  S.updatedAt=new Date().toISOString();
-  saveStore();
+  touchSession(dsKey);
   renderCalendar();
   showLog(dsKey,getPlanType(new Date(dsKey)));
 }
 
 function recDelete(dsKey){
   if(typeof confirm==='function'&&!confirm('删除 '+dsKey+' 的记录？不可撤销。'))return;
-  delete store.sessions[dsKey];
-  saveStore();renderCalendar();closeView();
+  var S=store.sessions[dsKey];
+  if(S&&isLoggedIn()){
+    // 已登录：软删除，这样其它设备才知道「这条被删了」
+    S.deletedAt=new Date().toISOString();
+    S.updatedAt=S.deletedAt;
+    markDirty('session',dsKey);
+    saveStore();
+  }else{
+    delete store.sessions[dsKey];
+  }
+  renderCalendar();closeView();
 }
 
 /** 新格式记录（逐组）的展示 */
@@ -1006,6 +1294,132 @@ function importData(ev){
     ev.target.value='';
   };
   r.readAsText(f);
+}
+
+
+// ═══════════════════════════════════════════
+// 账号与同步（后端交互全部走 sync.js）
+// ═══════════════════════════════════════════
+
+var _syncTimer=null;
+
+/** 改动某天的记录：更新时间戳 + 存盘 + 标记待同步 + 排一个延迟同步 */
+function touchSession(dsKey){
+  var S=store.sessions[dsKey];if(!S)return;
+  S.updatedAt=new Date().toISOString();
+  markDirty('session',dsKey);
+  saveStore();
+  scheduleSync();
+}
+
+function scheduleSync(){
+  if(!isLoggedIn())return;
+  if(_syncTimer)clearTimeout(_syncTimer);
+  _syncTimer=setTimeout(function(){_syncTimer=null;syncNow();},3000);
+}
+
+function syncStatusText(){
+  return {idle:'空闲',syncing:'同步中…',ok:'已同步',error:'同步失败',offline:'离线（稍后重试）',noauth:'未登录'}[syncStatus]||syncStatus;
+}
+function syncLabel(){
+  return {idle:'☁ 账号',syncing:'☁ 同步中…',ok:'☁ 已同步',error:'☁ 同步失败',offline:'☁ 离线',noauth:'☁ 登录'}[syncStatus]||'☁ 账号';
+}
+/** 只更新按钮文字，不整页重绘 */
+function refreshSyncUI(){
+  var b=document.getElementById('syncBtn');
+  if(b)b.textContent=syncLabel();
+  var s=document.getElementById('accStatus');
+  if(s)s.textContent=syncStatusText();
+  var d=document.getElementById('accDirty');
+  if(d)d.textContent=Object.keys(syncState.dirty).length+' 条';
+  var e=document.getElementById('accErr');
+  if(e)e.textContent=syncError||'';
+}
+
+function showAccount(){
+  var h='<div class="ov-header"><div><div class="title">☁️ 账号与同步</div>'
+    +'<div class="sub">'+(isLoggedIn()?esc((auth.user&&auth.user.email)||''):'未登录')+'</div></div>'
+    +'<button class="close-btn" onclick="closeView()">✕</button></div>';
+  h+='<div class="ov-body">';
+  if(!isLoggedIn()){
+    h+='<div class="acc-box">'
+      +'<label class="acc-label">邮箱</label>'
+      +'<input id="accEmail" class="acc-in" type="email" autocomplete="email" placeholder="you@example.com">'
+      +'<label class="acc-label">密码</label>'
+      +'<input id="accPw" class="acc-in" type="password" autocomplete="current-password" placeholder="至少 6 位">'
+      +'<div class="acc-msg" id="accMsg"></div>'
+      +'<button class="btn-rec" onclick="doAuth(\'in\')">登录</button>'
+      +'<button class="btn-xs" style="width:100%;margin-top:8px;padding:8px" onclick="doAuth(\'up\')">注册新账号</button>'
+      +'<div class="acc-note">数据存在你自己的后端账号里，行级安全保证只有你能读写。<br>'
+      +'本机已有的记录不会丢 —— 登录后会自动合并上传。</div>'
+      +'</div>';
+  }else{
+    h+='<div class="acc-box">'
+      +'<div class="acc-row"><span>状态</span><b id="accStatus">'+syncStatusText()+'</b></div>'
+      +'<div class="acc-row"><span>上次同步</span><b>'+(syncLastAt?syncLastAt.slice(0,19).replace('T',' '):'从未')+'</b></div>'
+      +'<div class="acc-row"><span>待上传</span><b id="accDirty">'+Object.keys(syncState.dirty).length+' 条</b></div>'
+      +(syncError?'<div class="acc-err" id="accErr">'+esc(syncError)+'</div>':'<div class="acc-err" id="accErr"></div>')
+      +'<button class="btn-rec" onclick="doSync()">立即同步</button>'
+      +'<button class="btn-xs" style="width:100%;margin-top:8px;padding:8px" onclick="doSignOut()">退出登录</button>'
+      +'<div class="acc-note">退出后本机数据仍在，只是不再上传。</div>'
+      +'</div>';
+  }
+  h+=ovFooter();
+  h+='</div>';
+  renderMain(h);
+}
+
+function accMsg(t,cls){
+  var el=document.getElementById('accMsg');
+  if(el){el.textContent=t;el.className='acc-msg '+(cls||'');}
+}
+
+async function doAuth(mode){
+  var e=document.getElementById('accEmail'), p=document.getElementById('accPw');
+  var email=e?e.value.trim():'', pw=p?p.value:'';
+  if(!email||!pw){accMsg('请填写邮箱和密码','err');return;}
+  if(pw.length<6){accMsg('密码至少 6 位','err');return;}
+  accMsg(mode==='up'?'注册中…':'登录中…','');
+  try{
+    if(mode==='up'){
+      var r=await sbSignUp(email,pw);
+      if(r.needConfirm){accMsg('注册成功，但该项目开启了邮箱确认 —— 请到邮箱点确认链接后再登录','ok');return;}
+    }else{
+      await sbSignIn(email,pw);
+    }
+    accMsg('登录成功，正在同步…','ok');
+    var res=await syncNow();
+    if(res.ok){renderCalendar();showAccount();}
+    else accMsg('登录成功，但同步失败：'+(res.message||res.reason),'err');
+  }catch(err){
+    accMsg('失败：'+((err&&err.message)||err),'err');
+  }
+}
+
+async function doSync(){
+  accMsg('同步中…','');
+  var r=await syncNow();
+  if(r.ok){accMsg('同步完成（下载 '+r.pulled+' 条，上传 '+r.pushed+' 条）','ok');renderCalendar();}
+  else accMsg('同步失败：'+(r.message||r.reason),'err');
+  refreshSyncUI();
+}
+
+async function doSignOut(){
+  if(typeof confirm==='function'&&!confirm('退出登录？本机数据会保留，但不再上传。'))return;
+  await sbSignOut();
+  renderCalendar();closeView();
+}
+
+/** 启动时自动同步一次；回到前台/恢复联网也同步 */
+function syncBootstrap(){
+  if(!isLoggedIn())return;
+  setTimeout(function(){syncNow();},1500);
+  if(typeof window!=='undefined'&&window.addEventListener){
+    window.addEventListener('online',function(){syncNow();});
+    document.addEventListener('visibilitychange',function(){
+      if(!document.hidden)syncNow();
+    });
+  }
 }
 </script>
 <script>
