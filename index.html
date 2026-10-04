@@ -347,6 +347,20 @@ a{color:var(--pp);text-decoration:none}
 .pl-dow{display:flex;align-items:center;gap:10px;padding:6px 16px}
 .pl-dn{flex:0 0 40px;font-size:.74rem;color:var(--t)}
 .pl-dow select{flex:1 1 auto}
+
+
+/* ═══════ 计划入口与总览 ═══════ */
+.pl-bar{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.pl-bar>span{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pl-bar .btn-xs{flex:0 0 auto}
+.pl-listall{padding:0 12px}
+.pl-row{display:flex;align-items:center;gap:8px;padding:12px 12px;border:1px solid var(--b);border-radius:8px;margin-bottom:7px;background:var(--c1);cursor:pointer}
+.pl-row:active{background:var(--c2)}
+.pl-row-main{flex:1 1 auto;min-width:0}
+.pl-row-main b{display:block;font-size:.82rem;color:var(--t);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pl-row-main span{display:block;font-size:.6rem;color:var(--d);margin-top:3px}
+.pl-badge{flex:0 0 auto;font-size:.55rem;color:var(--gl);border:1px solid var(--gl);border-radius:4px;padding:1px 5px}
+.pl-go{flex:0 0 auto;color:var(--d);font-size:1.1rem}
 </style>
 </head>
 <body>
@@ -2176,6 +2190,51 @@ function planReset(ptype) {
 
 function planOpenEx(i) { planOpen = (planOpen === i ? -1 : i); planRender(); }
 
+/* ── 计划总览：所有计划日一屏列完，点进去编辑 ──────────────────
+ * 为什么要它：原来唯一的入口在训练日页面的最下面（68% 处），
+ * 手机上要滚过全部动作才看得到；而且休息日完全没有入口。
+ * 这个页面从日历一步可达，且覆盖全部 7 个计划日。
+ */
+function showPlanList() {
+  var types = getTypes();
+  var seen = {}, list = [];
+  DOW_ORDER.forEach(function (dow) {
+    var n = types[dow];
+    if (!n || seen[n]) return;
+    seen[n] = 1;
+    list.push({ name: n, dow: dow });
+  });
+  // 补上不在星期安排里、但存在于模板或用户数据里的计划日
+  Object.keys(PLAN).concat(Object.keys(store.plans && store.plans.days || {})).forEach(function (n) {
+    if (!seen[n]) { seen[n] = 1; list.push({ name: n, dow: -1 }); }
+  });
+
+  var custom = Object.keys(store.plans && store.plans.days || {}).length;
+  var h = '<div class="ov-header"><div><div class="title">📋 训练计划</div>'
+    + '<div class="sub">' + list.length + ' 个计划日' + (custom ? ' · 已自定义 ' + custom + ' 个' : ' · 全部为出厂默认') + '</div></div>'
+    + '<button class="close-btn" onclick="closeView()">✕</button></div>';
+  h += '<div class="ov-body"><div class="pl-listall">';
+  list.forEach(function (x) {
+    var d = getPlan(x.name);
+    if (!d) return;
+    var cu = isPlanCustom(x.name);
+    h += '<div class="pl-row" onclick="showPlanEditor(' + Q + x.name + Q + ')">'
+      + '<div class="pl-row-main">'
+      + '<b>' + esc(d.day || x.name) + '</b>'
+      + '<span>' + (d.ex && d.ex.length ? d.ex.length + ' 个动作 · ' + planTotal(d) : '无动作') + '</span>'
+      + '</div>'
+      + (cu ? '<span class="pl-badge">已改</span>' : '')
+      + '<span class="pl-go">›</span></div>';
+  });
+  h += '</div>';
+  h += '<div class="mea-note">点任意一行进入编辑：增删动作、改重量/组次/休息、排序。<br>'
+    + '改动即时保存并同步到所有设备。<b>只有你改过的计划日会脱离出厂默认。</b></div>';
+  h += '<div class="rec-foot"><button class="btn-rec" onclick="closeView()">✓ 完成</button>'
+    + '<button class="btn-xs" onclick="showScheduleEditor()">📅 星期安排</button></div>';
+  h += '</div>';
+  renderMain(h);
+}
+
 /* ── 计划日编辑器 ─────────────────────────────────────────────── */
 
 function showPlanEditor(ptype) {
@@ -2246,6 +2305,7 @@ function planRender() {
   h += '<div class="rec-foot">'
     + '<button class="btn-rec" onclick="closeView()">✓ 完成</button>'
     + (custom ? '<button class="btn-xs" onclick="planReset(' + Q + ptype + Q + ')">恢复默认</button>' : '')
+    + '<button class="btn-xs" onclick="showPlanList()">📋 全部计划</button>'
     + '<button class="btn-xs" onclick="showScheduleEditor()">📅 星期安排</button>'
     + '</div>';
   h += '</div>';
@@ -2363,7 +2423,7 @@ function renderCalendar(){
   h+='</div>';
   h+='<div class="cal-tools"><button class="btn-xs" onclick="showMeasure()">📏 围度</button>'
     +'<button class="btn-xs" onclick="showVolumeTrend()">📊 训练量</button>'
-    +'<button class="btn-xs" onclick="showScheduleEditor()">📋 计划</button>'
+    +'<button class="btn-xs" onclick="showPlanList()">📋 计划</button>'
     +'<button class="btn-xs" id="syncBtn" onclick="showAccount()">'+syncLabel()+'</button></div>';
   h+='<div class="cal-tools"><button class="btn-xs" onclick="exportData()">⬇ 导出</button>'
     +'<button class="btn-xs" onclick="document.getElementById(\'importFile\').click()">⬆ 导入</button>'
@@ -2389,11 +2449,11 @@ function showPlan(dsKey,ptype){
   h+=recButton(dsKey,ptype);
   h+=adjLayer('今日调整提醒',adj);
   h+='<div class="layer"><div class="layer-h" onclick="toggleLayer(this)"><span class="icon">📋</span>训练计划 · '+P.total+'<span class="arrow">▼</span></div><div class="layer-b">';
-  h+='<div style="font-size:.65em;color:var(--d);margin-bottom:4px">目标肌群：'+[...new Set(P.ex.map(e=>e.mus))].join(' · ')+'</div>';
+  h+='<div class="pl-bar"><span style="font-size:.65em;color:var(--d)">目标肌群：'+[...new Set(P.ex.map(e=>e.mus))].join(' · ')+'</span>'
+    +'<button class="btn-xs" onclick="event.stopPropagation();showPlanEditor('+Q+ptype+Q+')">✏️ 编辑</button></div>';
   P.ex.forEach(e=>{
     h+='<div class="ex-row" onclick="this.classList.toggle(\'open\')"><div class="ex-sum"><span class="ex-n">'+e.n+'</span><span class="ex-name">'+e.name+'</span><span class="ex-tag">'+e.wt+'</span><span class="ex-tag">'+e.sr+'</span><span class="ex-tag">'+e.rest+'</span><span class="ex-tag">'+e.rir+'</span></div><div class="ex-detail">'+dt(e.name)+'</div></div>';
   });
-  h+='<div style="padding:10px 0 2px"><button class="btn-xs" onclick="showPlanEditor('+Q+ptype+Q+')">✏️ 编辑这个计划</button></div>';
   h+='</div></div>';
   h+=tcmSection(dsKey);
   h+=teaSection(ptype,dsKey);
